@@ -1,0 +1,27 @@
+# build output
+bin/
+obj/
+*.user
+
+# IDE / editor
+.vs/
+.vscode/
+.idea/
+
+# local build override (points SeBin64 at this machine's SE install)
+Directory.Build.props
+
+# local dev convenience (machine-specific deploy path) — keep out of the public repo
+deploy.sh
+
+# Private design/working docs — never public.
+PLAN-*.md
+BACKEND.md
+VISUALIZATION.md
+RELEASE-CHECKLIST.md
+
+# runtime output (offline batches, dry-run, diagnostics, subtype census)
+offline/
+dryrun/
+diag/
+census/

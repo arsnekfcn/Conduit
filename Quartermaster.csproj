@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <!-- Output DLL is Quartermaster.dll so Pulsar lists it as "Quartermaster". -->
+    <AssemblyName>Quartermaster</AssemblyName>
+    <RootNamespace>Quartermaster</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Platforms>x64</Platforms>
+    <Configurations>Debug;Release</Configurations>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <SeBin64 Condition="'$(SeBin64)' == ''">E:\SteamLibrary\steamapps\common\SpaceEngineers\Bin64</SeBin64>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Newtonsoft.Json is VENDORED + EMBEDDED into Quartermaster.dll so we ship a single plugin DLL.
+         Private=false: referenced for compile only, NOT copied to output. Plugin.ResolveSibling loads
+         it from the embedded resource at runtime (Pulsar doesn't auto-resolve Local plugin deps). -->
+    <Reference Include="Newtonsoft.Json"><HintPath>libs\Newtonsoft.Json.dll</HintPath><Private>false</Private></Reference>
+    <EmbeddedResource Include="libs\Newtonsoft.Json.dll"><LogicalName>Newtonsoft.Json.dll</LogicalName></EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Framework assemblies not auto-referenced in SDK-style net48 projects. -->
+    <Reference Include="System.Net.Http" />        <!-- HttpClient: POST to the backend -->
+    <Reference Include="System.Security" />         <!-- DPAPI: ProtectedData for a stored token (auth) -->
+    <Reference Include="System.Net" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="VRage"><HintPath>$(SeBin64)\VRage.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="VRage.Game"><HintPath>$(SeBin64)\VRage.Game.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="VRage.Library"><HintPath>$(SeBin64)\VRage.Library.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="VRage.Input"><HintPath>$(SeBin64)\VRage.Input.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="VRage.Math"><HintPath>$(SeBin64)\VRage.Math.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Sandbox.Common"><HintPath>$(SeBin64)\Sandbox.Common.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Sandbox.Game"><HintPath>$(SeBin64)\Sandbox.Game.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Sandbox.Graphics"><HintPath>$(SeBin64)\Sandbox.Graphics.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+</Project>
