@@ -28,6 +28,8 @@ namespace Quartermaster
         private MyKeys _hkKey = MyKeys.End;
         private int _linkCooldown;
         private MyKeys _linkKey = MyKeys.Home;
+        private Commands _commands;
+        private bool _chatHooked;
         private volatile bool _sending;
 
         public static string PluginDir =>
@@ -45,6 +47,7 @@ namespace Quartermaster
                 _cfg = QmConfig.Load();
                 if (_cfg.LoadError != null) Log("config load error (using defaults): " + _cfg.LoadError);
                 _classifier = Classifier.Load(_cfg);
+                _commands = new Commands(_cfg);
                 _intervalFrames = Math.Max(30, (int)(_cfg.ScanIntervalSeconds * 60.0));
                 if (!Enum.TryParse(_cfg.HotkeyKey, true, out _hkKey)) _hkKey = MyKeys.End;
                 if (!Enum.TryParse(_cfg.LinkHotkeyKey, true, out _linkKey)) _linkKey = MyKeys.Home;
@@ -59,6 +62,10 @@ namespace Quartermaster
         public void Update()
         {
             if (_cfg == null || MyAPIGateway.Session == null) return;
+            if (!_chatHooked && _commands != null && MyAPIGateway.Utilities != null)
+            {
+                try { MyAPIGateway.Utilities.MessageEntered += _commands.OnMessage; _chatHooked = true; } catch { }
+            }
             try { TryHotkey(); } catch { /* never spam the sim loop */ }
             try { TryLinkHotkey(); } catch { }
             if (++_frame < _intervalFrames) return;
@@ -137,7 +144,11 @@ namespace Quartermaster
             }
         }
 
-        public void Dispose() { Log("Dispose"); }
+        public void Dispose()
+        {
+            try { if (_chatHooked && MyAPIGateway.Utilities != null) MyAPIGateway.Utilities.MessageEntered -= _commands.OnMessage; } catch { }
+            Log("Dispose");
+        }
 
         // ---- embedded-dependency loader (mirrors the Shipyard pattern) ----
         private static Assembly ResolveSibling(object sender, ResolveEventArgs e)

@@ -50,7 +50,6 @@ internal 64-bit ids; `steamId` is the 64-bit SteamID.
     "factionTag": "PBC",
     "relationToObserver": "Self"
   },
-  "position": { "x": -41203.5, "y": 12880.1, "z": 998044.2 },
   "health": { "percent": 0.972, "damagedBlocks": 12, "destroyedBlocks": 0 },
   "classification": {
     "class": "Cruiser",

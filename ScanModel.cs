@@ -39,7 +39,6 @@ namespace Quartermaster
         public bool IsStatic;
         public int BlockCount;
         public Owner Owner;
-        public Position Position;
         public Health Health;
         public Classification Classification;
         public Telemetry Telemetry;
@@ -56,8 +55,6 @@ namespace Quartermaster
         public string FactionTag;
         public string RelationToObserver;       // Self | FactionShare | Faction | Allied
     }
-
-    public class Position { public double X, Y, Z; }
 
     public class Health
     {

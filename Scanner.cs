@@ -59,10 +59,27 @@ namespace Quartermaster
 
                 slims.Clear();
                 grid.GetBlocks(slims);
+                // Per-grid opt-in: skip unless the owner has marked the grid (marker in a block name/CustomData).
+                if (cfg.RequireTrackMarker && !HasTrackMarker(slims, cfg.TrackMarker)) continue;
                 env.Grids.Add(BuildGrid(grid, ownerId, relation, myFac, session, cfg, classifier, slims, census));
             }
 
             return env;
+        }
+
+        // True if any terminal block on the grid carries the opt-in marker in its name or Custom Data.
+        private static bool HasTrackMarker(List<IMySlimBlock> slims, string marker)
+        {
+            if (string.IsNullOrEmpty(marker)) return true;
+            foreach (var b in slims)
+            {
+                var t = b.FatBlock as IngameTerminal;
+                if (t == null) continue;
+                if ((t.CustomName != null && t.CustomName.IndexOf(marker, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (t.CustomData != null && t.CustomData.IndexOf(marker, StringComparison.OrdinalIgnoreCase) >= 0))
+                    return true;
+            }
+            return false;
         }
 
         // Decide scope membership. included=true => grid sent to backend.
@@ -91,7 +108,6 @@ namespace Quartermaster
             IMySession session, QmConfig cfg, Classifier classifier, List<IMySlimBlock> slims, Census census)
         {
             var ownerFac = session.Factions?.TryGetPlayerFaction(ownerId);
-            var pos = grid.GetPosition();
 
             var g = new Grid
             {
@@ -108,7 +124,6 @@ namespace Quartermaster
                     FactionTag = ownerFac?.Tag,
                     RelationToObserver = relation,
                 },
-                Position = new Position { X = pos.X, Y = pos.Y, Z = pos.Z },
             };
 
             // Health (always cheap; integrity is replicated).

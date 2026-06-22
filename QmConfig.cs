@@ -50,6 +50,13 @@ namespace Quartermaster
         // Seconds between passive scans.
         public double ScanIntervalSeconds = 60.0;
 
+        // Per-grid opt-in: only grids carrying the marker (in a block's name or Custom Data) are tracked, so a
+        // grid is collected ONLY when its owner has explicitly opted it in. Setting a block name / Custom Data
+        // requires build rights, so it's owner-gated by the game. Use the in-game "/qm track" command (aim at
+        // your grid) to set it, or add the marker to a block by hand. Set false to track all owned/faction grids.
+        public bool RequireTrackMarker = true;
+        public string TrackMarker = "[QM:track]";
+
         // Manual-scan hotkey (the periodic scan runs regardless; this is just a force-now key).
         // Default Ctrl+Shift+End — End isn't a movement key, so it won't also steer the character.
         // HotkeyKey is any VRage.Input.MyKeys name (e.g. End, Home, OemBackslash, F8).

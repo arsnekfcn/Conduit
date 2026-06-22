@@ -7,7 +7,7 @@ brought to you by the Formidan Mandate.
 A Space Engineers plugin, loaded via **Pulsar**, that turns your client into a passive
 **logistics collector** for a faction. It scans the grids you and your faction own that are in
 streaming range. Inventories, production (refineries/assemblers, active vs idle), ship class/hull,
-health, hydrogen/oxygen/battery, reactor fuel, weapons, ammo, and world position. It then **pushes** that
+health, hydrogen/oxygen/battery, reactor fuel, weapons, and ammo. It then **pushes** that
 data to a backend **you run**.
 
 It is **bring-your-own-backend**: the plugin only *extracts and ships* the data. What stores and
@@ -22,9 +22,14 @@ Skinned as a **Formidan Mandate** proprietary corp module. The skin is cosmetic;
 ## What it does
 
 ### Collect (passive, automatic)
-- Periodically scans own/faction grids in streaming range into a structured snapshot: per-grid inventory
+- **Opt-in per grid:** a grid is collected **only if its owner has explicitly marked it** — either via the
+  in-game `/qm track` command (aim at your grid; it verifies you own it) or by adding the marker
+  (`[QM:track]`, configurable) to a block's name or Custom Data. Setting that requires build rights, so it's
+  owner-gated by the game. Nothing is tracked by default. (Set `RequireTrackMarker=false` to collect all
+  owned/faction grids without a marker.)
+- For marked grids, periodically scans into a structured snapshot: per-grid inventory
   (ore / ingot / component / ammo), production capacity + utilization, ship class/hull, health,
-  hydrogen / oxygen / battery, reactor fuel, weapons, ammo magazines, and world position.
+  hydrogen / oxygen / battery, reactor fuel, weapons, and ammo magazines.
 - The de-dup key is the grid's replicated **EntityId**, so when several faction members report the same
   grid the records fuse to one (newest snapshot wins). See [SCHEMA.md](SCHEMA.md).
 

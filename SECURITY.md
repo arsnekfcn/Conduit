@@ -14,6 +14,9 @@ your data and credentials go, what the plugin can and can't do, and the question
 - The data leaves your machine **out of band**.. A direct HTTPS POST to your backend. It never travels
   through Space Engineers' multiplayer replication, so **other players (and server-side mods) cannot read
   it.** TLS protects it in transit.
+- **Owner opt-in per grid.** A grid is collected **only if its owner explicitly marks it** (the `/qm track`
+  command, ownership-checked, or a marker in a block's name/Custom Data — which needs build rights). Nothing
+  is tracked by default; you choose exactly which of your grids participate.
 - **Steam is used as an enrollment identity provider only.** "Sign in through Steam" verifies your SteamID
   *once* so your backend can issue a token bound to it. Per-request auth afterward is your own bearer token,
   not Steam.
@@ -21,7 +24,7 @@ your data and credentials go, what the plugin can and can't do, and the question
 ## What the plugin sends, and where
 
 Each scan builds one JSON snapshot of the own/faction grids in your streaming range (inventories,
-production, ship telemetry, weapons/ammo, position, see [SCHEMA.md](SCHEMA.md)), and hands it to whichever
+production, ship telemetry, weapons/ammo — see [SCHEMA.md](SCHEMA.md)), and hands it to whichever
 sinks you enabled:
 
 - **Offline sink** → a local file (`%APPDATA%\Quartermaster\offline\…`), which you can do anything with.
