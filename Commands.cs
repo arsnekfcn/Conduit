@@ -1,16 +1,8 @@
 using System;
-using System.Collections.Generic;
-using Sandbox.ModAPI;
-using VRage.Game.ModAPI;
-using VRageMath;
-using IngameTerminal = Sandbox.ModAPI.Ingame.IMyTerminalBlock;
 
 namespace Quartermaster
 {
-    // In-game chat commands: "/qm track | untrack | status". track/untrack mark the grid you're aiming at —
-    // but only if YOU own it. The marker is written into a block's Custom Data ON THE GRID, so it's
-    // authoritative for every faction member's client (not a per-player local list). A grid is only collected
-    // by the passive scanner when it carries this marker (see QmConfig.RequireTrackMarker).
+    // In-game chat commands: "/qm sync | status | link | help".
     public class Commands
     {
         private readonly QmConfig _cfg;
@@ -30,108 +22,41 @@ namespace Quartermaster
             {
                 switch (cmd)
                 {
-                    case "track": Mark(true); break;
-                    case "untrack": Mark(false); break;
-                    case "status": Status(); break;
+                    case "sync": Sync(); break;
+                    case "status": Notify.Chat(StatusLine()); break;
+                    case "link": Plugin.Instance?.OpenMenu(); break;
                     default:
-                        Notify.Chat("Quartermaster: aim at YOUR grid, then /qm track or /qm untrack. (/qm status to check)");
+                        Notify.Chat("Quartermaster: /qm sync (force a sync) | status | link (settings/onboarding) | help");
                         break;
                 }
             }
             catch (Exception ex) { Plugin.Log("command failed: " + ex.Message); Notify.Chat("Quartermaster: command error (see log)."); }
         }
 
-        private void Mark(bool on)
+        private void Sync()
         {
-            IngameTerminal hit;
-            var grid = LookedAtGrid(out hit);
-            if (grid == null) { Notify.Chat("Quartermaster: aim at a grid (within ~200m) first."); return; }
-
-            long me = MyAPIGateway.Session?.Player?.IdentityId ?? 0;
-            var owners = grid.BigOwners;
-            if (owners == null || !owners.Contains(me))
-            {
-                Notify.Chat("Quartermaster: you don't own that grid - only its owner can change its tracking.");
-                return;
-            }
-
-            var target = hit ?? FirstTerminal(grid);
-            if (target == null) { Notify.Chat("Quartermaster: no functional block to mark; name a block " + _cfg.TrackMarker + " by hand."); return; }
-
-            string cd = target.CustomData ?? "";
-            bool has = cd.IndexOf(_cfg.TrackMarker, StringComparison.OrdinalIgnoreCase) >= 0;
-            if (on)
-            {
-                if (!has) target.CustomData = (cd.Length == 0 ? "" : cd + "\n") + _cfg.TrackMarker;
-                Notify.Chat($"Quartermaster: tracking ON for \"{grid.DisplayName}\" (marker on {target.CustomName}).");
-            }
-            else
-            {
-                if (has) target.CustomData = RemoveMarkerLine(cd, _cfg.TrackMarker);
-                Notify.Chat($"Quartermaster: tracking OFF for \"{grid.DisplayName}\".");
-            }
+            var p = Plugin.Instance;
+            if (p == null) { Notify.Chat("Quartermaster: not ready."); return; }
+            Notify.Chat("Quartermaster: syncing...");
+            p.ManualSync();
         }
 
-        private void Status()
+        private string StatusLine()
         {
-            IngameTerminal hit;
-            var grid = LookedAtGrid(out hit);
-            if (grid == null) { Notify.Chat("Quartermaster: aim at a grid to check its tracking."); return; }
-            bool marked = GridHasMarker(grid);
-            string note = _cfg.RequireTrackMarker ? "" : " (marker not required - all owned/faction grids are tracked)";
-            Notify.Chat($"Quartermaster: \"{grid.DisplayName}\" is {(marked ? "TRACKED" : "NOT tracked")}{note}.");
+            string mode = (_cfg.Online && !string.IsNullOrWhiteSpace(_cfg.EndpointUrl)) ? "online" : "offline";
+            string age = SyncStatus.LastSyncTicksUtc == 0
+                ? "never"
+                : (int)Math.Max(0, (DateTime.UtcNow.Ticks - SyncStatus.LastSyncTicksUtc) / TimeSpan.TicksPerSecond) + "s ago";
+            return $"Quartermaster [{mode}]: last sync {age}, {SyncStatus.LastGridCount} grid(s), {CodeText(SyncStatus.LastOnlineCode)}";
         }
 
-        // Grid the player is aiming at (camera ray ~200m); also resolves the looked-at terminal block if any.
-        private IMyCubeGrid LookedAtGrid(out IngameTerminal hitBlock)
+        private static string CodeText(int code)
         {
-            hitBlock = null;
-            var cam = MyAPIGateway.Session?.Camera;
-            if (cam == null || MyAPIGateway.Physics == null) return null;
-            Vector3D from = cam.Position;
-            Vector3D to = from + cam.WorldMatrix.Forward * 200.0;
-            IHitInfo hit;
-            if (!MyAPIGateway.Physics.CastRay(from, to, out hit) || hit?.HitEntity == null) return null;
-            var grid = hit.HitEntity as IMyCubeGrid;
-            if (grid == null) return null;
-            try
-            {
-                var bpos = grid.RayCastBlocks(from, to);
-                if (bpos.HasValue) hitBlock = grid.GetCubeBlock(bpos.Value)?.FatBlock as IngameTerminal;
-            }
-            catch { }
-            return grid;
-        }
-
-        private static IngameTerminal FirstTerminal(IMyCubeGrid grid)
-        {
-            var blocks = new List<IMySlimBlock>();
-            grid.GetBlocks(blocks);
-            foreach (var b in blocks) { var t = b.FatBlock as IngameTerminal; if (t != null) return t; }
-            return null;
-        }
-
-        private bool GridHasMarker(IMyCubeGrid grid)
-        {
-            var blocks = new List<IMySlimBlock>();
-            grid.GetBlocks(blocks);
-            foreach (var b in blocks)
-            {
-                var t = b.FatBlock as IngameTerminal;
-                if (t == null) continue;
-                if ((t.CustomName != null && t.CustomName.IndexOf(_cfg.TrackMarker, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                    (t.CustomData != null && t.CustomData.IndexOf(_cfg.TrackMarker, StringComparison.OrdinalIgnoreCase) >= 0))
-                    return true;
-            }
-            return false;
-        }
-
-        private static string RemoveMarkerLine(string customData, string marker)
-        {
-            var kept = new List<string>();
-            foreach (var ln in customData.Replace("\r\n", "\n").Split('\n'))
-                if (ln.IndexOf(marker, StringComparison.OrdinalIgnoreCase) < 0) kept.Add(ln);
-            return string.Join("\n", kept).Trim();
+            if (code == 200) return "OK";
+            if (code == 0) return "offline/none";
+            if (code == 401 || code == 403) return "auth rejected";
+            if (code < 0) return "network error";
+            return "HTTP " + code;
         }
     }
 }

@@ -12,8 +12,10 @@ namespace Quartermaster
     public class ConfigScreen : MyGuiScreenDebugBase
     {
         private readonly QmConfig _cfg;
-        private MyGuiControlTextbox _url, _freq;
+        private MyGuiControlTextbox _url, _freq, _token;
         private MyGuiControlCheckbox _online, _offline, _chat;
+        private MyGuiControlCombobox _auth;
+        private static readonly string[] AuthModes = { "none", "bearer", "oauth2_cc" };
 
         private const float LabelX = -0.27f;
         private const float CtrlX = -0.05f;
@@ -32,35 +34,40 @@ namespace Quartermaster
         {
             base.RecreateControls(constructor);
 
-            Center(Brand.Faction, -0.32f, Brand.Accent, 0.9f);
-            Center(Brand.Product, -0.285f, Brand.AccentDim, 0.75f);
-            Center("Configure where your fleet logistics data is sent.", -0.25f, Brand.Muted, 0.7f);
+            Center(Brand.Faction, -0.335f, Brand.Accent, 0.9f);
+            Center(Brand.Product, -0.305f, Brand.AccentDim, 0.72f);
+            Center("Configure where your fleet logistics data is sent.", -0.272f, Brand.Muted, 0.68f);
 
             // ---- link status + onboarding ----
             Vector4 sc; string st = StatusText(out sc);
-            Center(st, -0.2f, sc, 0.85f);
-            MakeBtn("Link account  (Steam)", new Vector2(0f, -0.155f), new Vector2(0.42f, 0.045f),
+            Center(st, -0.232f, sc, 0.82f);
+            MakeBtn("Link account  (Steam)", new Vector2(0f, -0.188f), new Vector2(0.42f, 0.042f),
                 () => { CloseScreen(false); Onboard.Begin(_cfg); });
 
-            // ---- endpoint + sinks ----
-            AddLabel("Destination URL:", -0.085f);
-            _url = AddBox(-0.085f, _cfg.EndpointUrl, 0.31f);
+            // ---- endpoint ----
+            AddLabel("Destination URL:", -0.123f);
+            _url = AddBox(-0.123f, _cfg.EndpointUrl, 0.31f);
 
-            _online = AddCheck(-0.04f, _cfg.Online, "Send online (POST to the URL above)");
-            _offline = AddCheck(0.0f, _cfg.Offline, "Also write an offline batch file");
+            // ---- auth (common case settable here; oauth2_cc IdP details stay in config.json) ----
+            AddLabel("Auth mode:", -0.078f);
+            _auth = AddCombo(-0.078f, 0.31f, _cfg.AuthMode);
+            AddLabel("Token (blank=keep):", -0.033f);
+            _token = AddBox(-0.033f, "", 0.31f);
 
-            AddLabel("Sync every (seconds):", 0.05f);
-            _freq = AddBox(0.05f, ((int)Math.Round(_cfg.ScanIntervalSeconds)).ToString(), 0.1f);
-
-            _chat = AddCheck(0.095f, _cfg.ChatOnSync, "Announce each automatic sync in chat");
+            // ---- sinks + rate ----
+            _online = AddCheck(0.016f, _cfg.Online, "Send online (POST to the URL above)");
+            _offline = AddCheck(0.056f, _cfg.Offline, "Also write an offline batch file");
+            AddLabel("Sync every (seconds):", 0.105f);
+            _freq = AddBox(0.105f, ((int)Math.Round(_cfg.ScanIntervalSeconds)).ToString(), 0.1f);
+            _chat = AddCheck(0.15f, _cfg.ChatOnSync, "Announce each automatic sync in chat");
 
             // ---- actions ----
-            MakeBtn("Sync now", new Vector2(-0.12f, 0.175f), new Vector2(0.2f, 0.045f),
+            MakeBtn("Sync now", new Vector2(-0.12f, 0.215f), new Vector2(0.2f, 0.044f),
                 () => { Plugin.Instance?.ManualSync(); });
-            MakeBtn("Save", new Vector2(0.12f, 0.175f), new Vector2(0.2f, 0.045f), OnSave);
-            MakeBtn("Close", new Vector2(0f, 0.235f), new Vector2(0.42f, 0.04f), () => CloseScreen(false));
+            MakeBtn("Save", new Vector2(0.12f, 0.215f), new Vector2(0.2f, 0.044f), OnSave);
+            MakeBtn("Close", new Vector2(0f, 0.272f), new Vector2(0.42f, 0.04f), () => CloseScreen(false));
 
-            Center(Brand.Classified, 0.31f, Brand.AccentDim, 0.55f);
+            Center(Brand.Classified, 0.318f, Brand.AccentDim, 0.55f);
         }
 
         private string StatusText(out Vector4 color)
@@ -83,6 +90,12 @@ namespace Quartermaster
             double s;
             if (double.TryParse((_freq.Text ?? "").Trim(), out s)) _cfg.ScanIntervalSeconds = Math.Max(1.0, s);
             _cfg.ChatOnSync = _chat.IsChecked;
+
+            long k = _auth.GetSelectedKey();
+            _cfg.AuthMode = (k >= 0 && k < AuthModes.Length) ? AuthModes[k] : "none";
+            var tok = (_token.Text ?? "").Trim();
+            if (tok.Length > 0) _cfg.TokenPlain = tok;   // only overwrite when the user typed a new token
+
             _cfg.Save();
             Plugin.Instance?.OnConfigChanged();
             Notify.Hud("Quartermaster: settings saved", 2500);
@@ -106,6 +119,21 @@ namespace Quartermaster
             if (!string.IsNullOrEmpty(text)) box.Text = text;
             Controls.Add(box);
             return box;
+        }
+
+        MyGuiControlCombobox AddCombo(float y, float width, string current)
+        {
+            var c = new MyGuiControlCombobox(new Vector2(CtrlX, y), new Vector2(width, RowH))
+            { OriginAlign = MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_CENTER };
+            long sel = 0;
+            for (long i = 0; i < AuthModes.Length; i++)
+            {
+                c.AddItem(i, MyStringId.GetOrCompute(AuthModes[i]));
+                if (string.Equals(AuthModes[i], current, StringComparison.OrdinalIgnoreCase)) sel = i;
+            }
+            c.SelectItemByKey(sel);
+            Controls.Add(c);
+            return c;
         }
 
         MyGuiControlCheckbox AddCheck(float y, bool init, string label)

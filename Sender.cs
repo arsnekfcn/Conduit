@@ -31,7 +31,7 @@ namespace Quartermaster
         public static int Send(QmConfig cfg, Envelope env)
         {
             string json = Serialize(env);
-            int n = env.Grids.Count;
+            int n = env.Packets.Count;
 
             bool wroteAny = false;
             if (cfg.Offline) { WriteOffline(cfg, json, n); wroteAny = true; }
@@ -60,7 +60,7 @@ namespace Quartermaster
                 string path = cfg.ResolveOfflinePath();
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
                 File.WriteAllText(path, json);
-                Plugin.Log($"offline: wrote {gridCount} grid(s) -> {path}");
+                Plugin.Log($"offline: wrote {gridCount} packet(s) -> {path}");
             }
             catch (Exception ex) { Plugin.Log("offline write failed: " + ex.Message); }
         }
@@ -77,7 +77,7 @@ namespace Quartermaster
                     OAuth.Invalidate();
                     code = SendOnce(cfg, json, forceRefresh: true);
                 }
-                Plugin.Log($"post: {gridCount} grid(s) -> {(int)code} {code}");
+                Plugin.Log($"post: {gridCount} packet(s) -> {(int)code} {code}");
                 return (int)code;
             }
             catch (Exception ex) { Plugin.Log("post failed: " + ex.Message); return -1; }

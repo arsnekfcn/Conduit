@@ -11,9 +11,9 @@ using VRage.Utils;
 
 namespace Quartermaster
 {
-    // Quartermaster plugin entry point (client-side, Pulsar/Legacy net48). Runs a passive periodic scan of
-    // own/faction grids in streaming range and ships the data to a backend (or the dry-run file). The actual
-    // game-state read runs on the main/update thread; serialization + network are offloaded to a bg thread.
+    // Quartermaster plugin entry point (client-side, Pulsar/Legacy net48). Periodically reads [QM:<tag>] Custom
+    // Data packets off own/faction grids you can vanilla-access and ships them to a backend (or the dry-run
+    // file). The Custom Data read runs on the main/update thread; serialization + network go to a bg thread.
     public class Plugin : IPlugin
     {
         public const string Id = "quartermaster";
@@ -21,7 +21,6 @@ namespace Quartermaster
         public static Plugin Instance;     // for the config menu to reach scan/config-apply
 
         private QmConfig _cfg;
-        private Classifier _classifier;
         private int _frame;
         private int _intervalFrames = 240;          // recomputed from config once loaded (~60 fps)
         private int _hkCooldown;
@@ -46,7 +45,6 @@ namespace Quartermaster
                 Instance = this;
                 _cfg = QmConfig.Load();
                 if (_cfg.LoadError != null) Log("config load error (using defaults): " + _cfg.LoadError);
-                _classifier = Classifier.Load(_cfg);
                 _commands = new Commands(_cfg);
                 _intervalFrames = Math.Max(30, (int)(_cfg.ScanIntervalSeconds * 60.0));
                 if (!Enum.TryParse(_cfg.HotkeyKey, true, out _hkKey)) _hkKey = MyKeys.End;
@@ -73,16 +71,14 @@ namespace Quartermaster
             try { ScanAndSend(false); } catch (Exception ex) { Log("scan failed: " + ex.Message); }
         }
 
-        // Build the payload on the MAIN thread (ModAPI reads aren't thread-safe), then hand it off.
+        // Build the payload on the MAIN thread, then hand it off.
         // manual=true shows a HUD pop-up on completion; auto syncs optionally announce in chat.
         private void ScanAndSend(bool manual)
         {
             if (_sending) { if (manual) Notify.Hud("Quartermaster: a sync is already running"); return; }
-            var census = _cfg.SubtypeCensus ? new Census() : null;
-            var env = Scanner.Scan(_cfg, _classifier, census);
-            census?.Write();
-            int count = env.Grids.Count;
-            if (count == 0) { if (manual) Notify.Hud("Quartermaster: nothing in range to sync"); return; }
+            var env = Scanner.Scan(_cfg);
+            int count = env.Packets.Count;
+            if (count == 0) { if (manual) Notify.Hud("Quartermaster: no [QM:...] packets in reach to sync"); return; }
             _sending = true;
             ThreadPool.QueueUserWorkItem(_ =>
             {
@@ -97,9 +93,9 @@ namespace Quartermaster
 
         private static string SyncMsg(string prefix, int count, int code)
         {
-            if (code == 200) return $"{prefix}: {count} grid(s) OK";
-            if (code == 0) return $"{prefix}: {count} grid(s) written offline";
-            if (code < 0) return $"{prefix}: {count} grid(s) - network error";
+            if (code == 200) return $"{prefix}: {count} packet(s) OK";
+            if (code == 0) return $"{prefix}: {count} packet(s) written offline";
+            if (code < 0) return $"{prefix}: {count} packet(s) - network error";
             return $"{prefix}: server returned {code}";
         }
 
@@ -140,8 +136,14 @@ namespace Quartermaster
             {
                 _linkCooldown = 120;
                 Log("hotkey: open menu");
-                try { MyGuiSandbox.AddScreen(new ConfigScreen(_cfg)); } catch (Exception ex) { Log("menu open failed: " + ex.Message); }
+                OpenMenu();
             }
+        }
+
+        // Open the config / link menu (from the hotkey or the /qm link chat command). Main thread only.
+        public void OpenMenu()
+        {
+            try { MyGuiSandbox.AddScreen(new ConfigScreen(_cfg)); } catch (Exception ex) { Log("menu open failed: " + ex.Message); }
         }
 
         public void Dispose()
@@ -150,7 +152,7 @@ namespace Quartermaster
             Log("Dispose");
         }
 
-        // ---- embedded-dependency loader (mirrors the Shipyard pattern) ----
+        // ---- embedded-dependency loader ----
         private static Assembly ResolveSibling(object sender, ResolveEventArgs e)
         {
             try

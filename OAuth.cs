@@ -7,7 +7,7 @@ namespace Quartermaster
 {
     // OAuth2 client-credentials token cache for the online sink. Fetches a bearer token from the
     // operator's token endpoint (their IdP / API gateway), caches it until shortly before expiry,
-    // and refreshes on demand. Pure machine-to-machine — no browser, no user interaction.
+    // and refreshes on demand.
     public static class OAuth
     {
         private static readonly object Lock = new object();
