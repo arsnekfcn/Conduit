@@ -13,11 +13,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Newtonsoft.Json is VENDORED + EMBEDDED into Quartermaster.dll so we ship a single plugin DLL.
-         Private=false: referenced for compile only, NOT copied to output. Plugin.ResolveSibling loads
-         it from the embedded resource at runtime (Pulsar doesn't auto-resolve Local plugin deps). -->
-    <Reference Include="Newtonsoft.Json"><HintPath>libs\Newtonsoft.Json.dll</HintPath><Private>false</Private></Reference>
-    <EmbeddedResource Include="libs\Newtonsoft.Json.dll"><LogicalName>Newtonsoft.Json.dll</LogicalName></EmbeddedResource>
+    <!-- Restored from NuGet (listed under <NuGetReferences> in the PluginHub manifest) so Pulsar's from-source
+         build resolves it. No committed binary, no embedding — deploy.sh ships Newtonsoft.Json.dll as a
+         separate file next to the plugin (Pulsar loads sibling DLLs). -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>

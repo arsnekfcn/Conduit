@@ -15,10 +15,10 @@ namespace Quartermaster
         }
 
         public static void Hud(string text, int ms = 3000)
-            => OnMain(() => { try { MyAPIGateway.Utilities?.ShowNotification(text, ms); } catch { } });
+            => OnMain(() => { try { MyAPIGateway.Utilities?.ShowNotification(text, ms); } catch { /* HUD toast is cosmetic + best-effort; a failed notification must not surface or recurse */ } });
 
         public static void Chat(string text)
-            => OnMain(() => { try { MyAPIGateway.Utilities?.ShowMessage("Quartermaster", text); } catch { } });
+            => OnMain(() => { try { MyAPIGateway.Utilities?.ShowMessage("Quartermaster", text); } catch { /* same: a failed chat line is cosmetic and must not throw on the main thread */ } });
     }
 
     // Last-sync result, shown as the "linked?" status in the config menu.

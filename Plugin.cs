@@ -1,7 +1,5 @@
 using System;
-using System.IO;
 using System.Net;
-using System.Reflection;
 using System.Threading;
 using Sandbox.Graphics.GUI;
 using Sandbox.ModAPI;
@@ -31,15 +29,13 @@ namespace Quartermaster
         private bool _chatHooked;
         private volatile bool _sending;
 
-        public static string PluginDir =>
-            Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-
         public void Init(object gameInstance)
         {
             Log("Init: loading");
-            // Load the embedded Newtonsoft.Json.dll (single-DLL distribution; Pulsar doesn't auto-resolve Local deps).
-            AppDomain.CurrentDomain.AssemblyResolve += ResolveSibling;
-            try { ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12; } catch { }
+            // Newtonsoft.Json ships beside the plugin (separate file) and is a NuGet dep under the from-source
+            // build, so the CLR resolves it normally — no AssemblyResolve shim, and no executing-assembly path
+            // lookups (those throw under Pulsar's in-memory from-source build, where Location is empty).
+            try { ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12; } catch { /* best-effort TLS bump; if the runtime rejects the OR, its default protocol still negotiates HTTPS */ }
             try
             {
                 Instance = this;
@@ -62,10 +58,10 @@ namespace Quartermaster
             if (_cfg == null || MyAPIGateway.Session == null) return;
             if (!_chatHooked && _commands != null && MyAPIGateway.Utilities != null)
             {
-                try { MyAPIGateway.Utilities.MessageEntered += _commands.OnMessage; _chatHooked = true; } catch { }
+                try { MyAPIGateway.Utilities.MessageEntered += _commands.OnMessage; _chatHooked = true; } catch { /* retried every Update until it binds (_chatHooked); a transient null during load is expected */ }
             }
-            try { TryHotkey(); } catch { /* never spam the sim loop */ }
-            try { TryLinkHotkey(); } catch { }
+            try { TryHotkey(); } catch { /* per-tick input poll: a transient input/GUI-state hiccup must not throw out of Update and stall the sim */ }
+            try { TryLinkHotkey(); } catch { /* same: the link-hotkey poll must never throw into the sim loop */ }
             if (++_frame < _intervalFrames) return;
             _frame = 0;
             try { ScanAndSend(false); } catch (Exception ex) { Log("scan failed: " + ex.Message); }
@@ -109,7 +105,7 @@ namespace Quartermaster
         {
             if (_hkCooldown > 0) { _hkCooldown--; return; }
             if (_hkKey == MyKeys.None) return;
-            try { if (MyAPIGateway.Gui != null && MyAPIGateway.Gui.ChatEntryVisible) return; } catch { }
+            try { if (MyAPIGateway.Gui != null && MyAPIGateway.Gui.ChatEntryVisible) return; } catch { /* Gui can be null mid-load; treat as "chat not open" and continue */ }
             var input = MyAPIGateway.Input;
             if (input == null) return;
             if (_cfg.HotkeyCtrl != input.IsAnyCtrlKeyPressed()) return;
@@ -127,7 +123,7 @@ namespace Quartermaster
         {
             if (_linkCooldown > 0) { _linkCooldown--; return; }
             if (_linkKey == MyKeys.None) return;
-            try { if (MyAPIGateway.Gui != null && MyAPIGateway.Gui.ChatEntryVisible) return; } catch { }
+            try { if (MyAPIGateway.Gui != null && MyAPIGateway.Gui.ChatEntryVisible) return; } catch { /* Gui can be null mid-load; treat as "chat not open" and continue */ }
             var input = MyAPIGateway.Input;
             if (input == null) return;
             if (_cfg.LinkHotkeyCtrl != input.IsAnyCtrlKeyPressed()) return;
@@ -148,32 +144,8 @@ namespace Quartermaster
 
         public void Dispose()
         {
-            try { if (_chatHooked && MyAPIGateway.Utilities != null) MyAPIGateway.Utilities.MessageEntered -= _commands.OnMessage; } catch { }
+            try { if (_chatHooked && MyAPIGateway.Utilities != null) MyAPIGateway.Utilities.MessageEntered -= _commands.OnMessage; } catch { /* teardown best-effort: if the utilities are already gone there is nothing to detach */ }
             Log("Dispose");
-        }
-
-        // ---- embedded-dependency loader ----
-        private static Assembly ResolveSibling(object sender, ResolveEventArgs e)
-        {
-            try
-            {
-                string name = new AssemblyName(e.Name).Name;
-                var self = Assembly.GetExecutingAssembly();
-                using (var s = self.GetManifestResourceStream(name + ".dll"))
-                {
-                    if (s != null) { Log("resolving " + name + " from embedded resource"); return Assembly.Load(ReadAll(s)); }
-                }
-            }
-            catch (Exception ex) { Log("ResolveSibling failed: " + ex.Message); }
-            return null;
-        }
-
-        private static byte[] ReadAll(Stream s)
-        {
-            var buf = new byte[s.Length];
-            int off = 0, n;
-            while (off < buf.Length && (n = s.Read(buf, off, buf.Length - off)) > 0) off += n;
-            return buf;
         }
 
         public static void Log(string msg) => MyLog.Default?.WriteLineAndConsole("[" + Id + "] " + msg);

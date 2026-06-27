@@ -159,7 +159,7 @@ namespace Quartermaster
                     foreach (var x in _grp) if (x != null && x.EntityId == a.EntityId) return true;
                 }
             }
-            catch { }
+            catch { /* GetGridGroup can throw on a partially-streamed grid; treat as "not the controlled construct" */ }
             return false;
         }
 

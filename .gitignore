@@ -19,9 +19,13 @@ PLAN-*.md
 BACKEND.md
 VISUALIZATION.md
 RELEASE-CHECKLIST.md
+PLUGINHUB-COMPLIANCE-TODO.md
 
 # runtime output (offline batches, dry-run, diagnostics, subtype census)
 offline/
 dryrun/
 diag/
 census/
+
+# No committed binary deps — use NuGet PackageReference (deps ship as separate files via deploy.sh)
+libs/

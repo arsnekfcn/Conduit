@@ -24,6 +24,8 @@ namespace Quartermaster
         public static void Begin(QmConfig cfg)
         {
             if (string.IsNullOrWhiteSpace(cfg.OnboardUrl)) { Plugin.Log("onboard: set OnboardUrl in config first"); return; }
+            if (!cfg.OnboardUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && !cfg.AllowInsecureEndpoint)
+            { Plugin.Log("onboard: OnboardUrl is not https (the one-time code + returned token would be cleartext). Use https, or set AllowInsecureEndpoint=true."); return; }
 
             TcpListener listener;
             string state, url;
@@ -56,7 +58,7 @@ namespace Quartermaster
                 {
                     if (_current != listener) return;   // a newer press superseded us — exit quietly
                     try { if (!listener.Pending()) { Thread.Sleep(200); continue; } }
-                    catch { return; }
+                    catch { return; /* listener faulted/closed (e.g. a newer attempt superseded it) — stop waiting quietly */ }
                     using (var client = listener.AcceptTcpClient())
                     {
                         client.ReceiveTimeout = 4000;
@@ -86,7 +88,7 @@ namespace Quartermaster
                 Plugin.Log("onboard: timed out waiting for Steam sign-in");
             }
             catch (Exception ex) { Plugin.Log("onboard failed: " + ex.Message); }
-            finally { try { listener.Stop(); } catch { } if (_current == listener) _current = null; }
+            finally { try { listener.Stop(); } catch { /* already stopped/faulted — nothing to do */ } if (_current == listener) _current = null; }
         }
 
         // Exchange the one-time onboarding code for the actual token via a direct HTTPS POST to the backend.
@@ -143,7 +145,7 @@ namespace Quartermaster
                     if (pair.Substring(0, eq) == key) return Uri.UnescapeDataString(pair.Substring(eq + 1));
                 }
             }
-            catch { }
+            catch { /* malformed request line — treat as "param not present" */ }
             return null;
         }
 
@@ -172,7 +174,7 @@ namespace Quartermaster
                 {
                     bool overlayOn = true;
                     var isOn = utils?.GetMethod("IsOverlayEnabled", BindingFlags.Public | BindingFlags.Static);
-                    try { if (isOn != null) overlayOn = (bool)isOn.Invoke(null, null); } catch { }
+                    try { if (isOn != null) overlayOn = (bool)isOn.Invoke(null, null); } catch { /* IsOverlayEnabled probe failed; leave overlayOn=true, try the overlay, and fall back to the browser below if it throws */ }
 
                     if (overlayOn)
                     {
@@ -212,7 +214,7 @@ namespace Quartermaster
             if (t != null) return t;
             foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
             {
-                try { t = a.GetType(fullName); if (t != null) return t; } catch { }
+                try { t = a.GetType(fullName); if (t != null) return t; } catch { /* some assemblies throw on GetType (dynamic/reflection-only) — skip and try the next */ }
             }
             return null;
         }

@@ -91,7 +91,8 @@ namespace Quartermaster
                 // Re-canonicalize: rewrite the file so newly-added fields appear (with defaults) for the user
                 // to edit, while preserving any values they've already set. Avoids stale-config surprises.
                 // (Secrets are written encrypted; a hand-pasted plaintext token is upgraded to DPAPI here.)
-                try { File.WriteAllText(Path_, JsonConvert.SerializeObject(cfg, Formatting.Indented)); } catch { }
+                try { File.WriteAllText(Path_, JsonConvert.SerializeObject(cfg, Formatting.Indented)); }
+                catch (Exception ex) { Plugin.Log("config: re-canonicalize write failed (using the loaded values): " + ex.Message); }
                 return cfg;
             }
             catch (Exception ex)

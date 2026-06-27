@@ -21,6 +21,14 @@ namespace Quartermaster
                 if (!forceRefresh && _token != null && DateTime.UtcNow < _expiresUtc)
                     return _token;
 
+                // The client secret travels to TokenUrl — require HTTPS (same gate as the online sink) unless
+                // the operator explicitly allows an insecure endpoint.
+                if (!string.IsNullOrEmpty(cfg.TokenUrl)
+                    && !cfg.TokenUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                    && !cfg.AllowInsecureEndpoint)
+                    throw new Exception("oauth2_cc: TokenUrl is not https (the client secret would be cleartext). "
+                                        + "Use https, or set AllowInsecureEndpoint=true to override.");
+
                 var form = new List<KeyValuePair<string, string>>
                 {
                     new KeyValuePair<string, string>("grant_type", "client_credentials"),

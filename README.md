@@ -47,10 +47,10 @@ example. It's **optional, not required**: the plugin reads any `[QM:...]` packet
   (`oauth2_cc`). Non-HTTPS endpoints are refused by default (the token would be cleartext).
 
 ### In-game UI
-- **Config menu** (default **Ctrl+Shift+Home**): set the destination URL, **auth mode + token**, toggle
-  online/offline, set the sync interval, see your live **link status**, and link your account. (Open endpoints
-  and bearer tokens need no config-file editing; OAuth2 client-credentials backends set their IdP details in
-  `config.json`.)
+- **Config menu** (default **Ctrl+Shift+Home**): set the destination URL, the **auth mode** (none / bearer /
+  OAuth2 client-credentials) and its fields — a bearer **token**, or the OAuth2 **token URL + client ID +
+  secret + scope** — toggle online/offline, set the sync interval, see your live **link status**, link your
+  account, and **Wipe auth** to reset. No config-file editing required for any auth mode.
 - **Manual sync** (default **Ctrl+Shift+End**) with a HUD confirmation pop-up.
 - Optional **chat message on every automatic sync**.
 
@@ -61,6 +61,10 @@ example. It's **optional, not required**: the plugin reads any `[QM:...]` packet
 ---
 
 ## Install (Pulsar)
+**Requirements:** Windows + Space Engineers on Pulsar's **Legacy** (.NET Framework) runtime. Token encryption at
+rest uses **Windows DPAPI**; on non-Windows runtimes the token still works but is **not encrypted on disk**, so
+prefer Windows for token-authenticated backends. Offline / no-auth use has no such caveat.
+
 1. In Pulsar, add **Quartermaster** from the plugin list and enable it; restart SE.
 2. Open the config menu (**Ctrl+Shift+Home**), set your **Destination URL** (or leave online off and use
    the offline file), and **Save**.
@@ -70,8 +74,11 @@ Config also lives at `%APPDATA%\Quartermaster\config.json` if you prefer editing
 
 ## Build locally
 Requires a Space Engineers install. Point `SeBin64` at your `...\SpaceEngineers\Bin64` (a local
-`Directory.Build.props` or an env var), then `dotnet build -c Release`. Newtonsoft.Json is vendored in
-`libs/` and embedded into the single output DLL (loaded at runtime via an `AssemblyResolve` shim).
+`Directory.Build.props` or an env var), then `dotnet build -c Release` (or run `deploy.sh`). Newtonsoft.Json is
+a NuGet `<PackageReference>`. The MSBuild / `deploy.sh` build defines `LOCAL_BUILD`, which embeds it into the
+single output DLL (loaded at runtime via an `AssemblyResolve` shim) so a manual Local install is self-contained;
+Pulsar's from-source build (PluginHub) ignores that and restores Newtonsoft from NuGet normally. See
+`docs/plugins/BUILDING.md`.
 
 ## The backend is yours
 Quartermaster ships **no backend**. It defines a data contract ([SCHEMA.md](SCHEMA.md)); you build, or
