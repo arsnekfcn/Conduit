@@ -42,10 +42,11 @@ structured data), otherwise forwards it as a string.
   context; useful when the payload itself doesn't carry ownership, e.g. a Programmable Block can't read faction).
 - **`payload`**: verbatim. Consumers dispatch on `tag` and parse accordingly.
 
-## Example payload: the `qm.fleet.v1` companion format
+## Example payload: a fleet-logistics format (`qm.fleet.v1`)
 
-The companion script (a separate vanilla PB example) writes this under tag `qm.fleet.v1`, one example of a
-payload; your own scripts can define any other format under any other tag.
+One real-world example is a fleet-logistics reporter publishing under tag `qm.fleet.v1`. It's just an example;
+your own scripts can define any format under any tag. The bundled
+[Conduit Example](https://github.com/arsnekfcn/conduit-example) writes a simpler `conduit.example.v1` packet.
 
 ```json
 { "grids": [ {
