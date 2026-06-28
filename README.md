@@ -33,9 +33,10 @@ Skinned as a **Formidan Mandate** proprietary corp module. The skin is cosmetic;
 
 ### Feeding it: write a `[CDT:<tag>]` packet
 Anything that can write block Custom Data can feed Conduit. A Programmable Block script, a server mod, or
-you by hand. The **Quartermaster Companion** (a separate, ready-made vanilla PB script) publishes a
-fleet-logistics packet under tag `qm.fleet.v1`. Inventory, production, power/gas, weapons, as a working
-example. It's **optional, not required**: the plugin reads any `[CDT:...]` packet, whatever the source.
+you by hand. The [**Conduit Example**](https://github.com/arsnekfcn/conduit-example) (a separate, ready-made
+vanilla PB script) writes a `[CDT:conduit.example.v1]` packet of a grid's inventory totals — a worked template
+you can copy and adapt. It's **optional, not required**: the plugin reads any `[CDT:...]` packet, whatever the
+source.
 
 ### In-game commands
 - `/conduit sync`: force a sync now · `/conduit status`: last-sync mode / age / grid count / result ·
