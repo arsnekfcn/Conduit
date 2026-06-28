@@ -1,6 +1,6 @@
 # Contributors
 
-Thanks to everyone who has helped build Quartermaster.
+Thanks to everyone who has helped build Conduit.
 
 - **[@arsnekfcn](https://github.com/arsnekfcn)**: author & maintainer.
 

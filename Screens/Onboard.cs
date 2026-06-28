@@ -6,11 +6,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 
-namespace Quartermaster
+namespace Conduit
 {
     // In-game Steam onboarding. Opens the operator's /auth/steam/login in the Steam overlay browser (already
     // signed into the user's Steam account), runs a one-shot localhost loopback listener, and when the backend
-    // redirects the verified token back to it, writes the token into config — no copy/paste, no external browser.
+    // redirects the verified token back to it, writes the token into config.
     //
     // Threading: Begin() runs on the MAIN game thread (called from the hotkey handler) and opens the URL there
     // because the overlay/GUI call is not thread-safe. Only the blocking accept-loop runs on a background thread.
@@ -21,9 +21,12 @@ namespace Quartermaster
     {
         private static volatile TcpListener _current;   // the active attempt; a repeat press supersedes it
 
-        public static void Begin(QmConfig cfg)
+        public static void Begin(ConduitConfig cfg)
         {
-            if (string.IsNullOrWhiteSpace(cfg.OnboardUrl)) { Plugin.Log("onboard: set OnboardUrl in config first"); return; }
+            if (string.IsNullOrWhiteSpace(cfg.OnboardUrl))
+            { Notify.Hud("Conduit: set the Onboard URL first (auth mode = bearer), then Link"); return; }
+            if (!cfg.OnboardUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && !cfg.AllowInsecureEndpoint)
+            { Notify.Hud("Conduit: Onboard URL must be https (or set AllowInsecureEndpoint)"); return; }
 
             TcpListener listener;
             string state, url;
@@ -47,16 +50,16 @@ namespace Quartermaster
         }
 
         // Background: wait for the backend to redirect the token to our loopback.
-        private static void Wait(TcpListener listener, string state, QmConfig cfg)
+        private static void Wait(TcpListener listener, string state, ConduitConfig cfg)
         {
             try
             {
                 var deadline = DateTime.UtcNow.AddMinutes(3);
                 while (DateTime.UtcNow < deadline)
                 {
-                    if (_current != listener) return;   // a newer press superseded us — exit quietly
+                    if (_current != listener) return;   // a newer press superseded us, exit quietly
                     try { if (!listener.Pending()) { Thread.Sleep(200); continue; } }
-                    catch { return; }
+                    catch { return; /* listener faulted/closed (e.g. a newer attempt superseded it)*/ }
                     using (var client = listener.AcceptTcpClient())
                     {
                         client.ReceiveTimeout = 4000;
@@ -86,12 +89,11 @@ namespace Quartermaster
                 Plugin.Log("onboard: timed out waiting for Steam sign-in");
             }
             catch (Exception ex) { Plugin.Log("onboard failed: " + ex.Message); }
-            finally { try { listener.Stop(); } catch { } if (_current == listener) _current = null; }
+            finally { try { listener.Stop(); } catch { /* already stopped/faulted, nothing to do */ } if (_current == listener) _current = null; }
         }
 
         // Exchange the one-time onboarding code for the actual token via a direct HTTPS POST to the backend.
-        // The token never appears in a browser URL/history — only this opaque single-use code does.
-        private static string ClaimToken(QmConfig cfg, string code)
+        private static string ClaimToken(ConduitConfig cfg, string code)
         {
             try
             {
@@ -143,14 +145,14 @@ namespace Quartermaster
                     if (pair.Substring(0, eq) == key) return Uri.UnescapeDataString(pair.Substring(eq + 1));
                 }
             }
-            catch { }
+            catch { /* malformed request line, treat as "param not present" */ }
             return null;
         }
 
         private static void Respond(NetworkStream s, bool ok)
         {
             string body = ok
-                ? "<h2>Quartermaster linked.</h2><p>You can close this and return to the game.</p>"
+                ? "<h2>Conduit linked.</h2><p>You can close this and return to the game.</p>"
                 : "<h2>Link failed.</h2><p>Mismatched request - start onboarding again from the game.</p>";
             string resp = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n"
                 + "Content-Length: " + Encoding.UTF8.GetByteCount(body) + "\r\n\r\n" + body;
@@ -172,7 +174,7 @@ namespace Quartermaster
                 {
                     bool overlayOn = true;
                     var isOn = utils?.GetMethod("IsOverlayEnabled", BindingFlags.Public | BindingFlags.Static);
-                    try { if (isOn != null) overlayOn = (bool)isOn.Invoke(null, null); } catch { }
+                    try { if (isOn != null) overlayOn = (bool)isOn.Invoke(null, null); } catch { /* IsOverlayEnabled probe failed; leave overlayOn=true, try the overlay, and fall back to the browser below if it throws */ }
 
                     if (overlayOn)
                     {
@@ -212,7 +214,7 @@ namespace Quartermaster
             if (t != null) return t;
             foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
             {
-                try { t = a.GetType(fullName); if (t != null) return t; } catch { }
+                try { t = a.GetType(fullName); if (t != null) return t; } catch { /* some assemblies throw on GetType (dynamic/reflection-only), skip and try the next */ }
             }
             return null;
         }

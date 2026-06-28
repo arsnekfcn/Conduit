@@ -5,7 +5,7 @@ using VRage.Game;
 using VRage.Utils;
 using VRageMath;
 
-namespace Quartermaster
+namespace Conduit
 {
     // Shared control factories so screens have a consistent look (mirrors Shipyard's Frame).
     static class Frame
