@@ -7,18 +7,18 @@ using VRage.Input;
 using VRage.Plugins;
 using VRage.Utils;
 
-namespace Quartermaster
+namespace Conduit
 {
-    // Quartermaster plugin entry point (client-side, Pulsar/Legacy net48). Periodically reads [QM:<tag>] Custom
+    // Conduit plugin entry point (client-side, Pulsar/Legacy net48). Periodically reads [CDT:<tag>] Custom
     // Data packets off own/faction grids you can vanilla-access and ships them to a backend (or the dry-run
     // file). The Custom Data read runs on the main/update thread; serialization + network go to a bg thread.
     public class Plugin : IPlugin
     {
-        public const string Id = "quartermaster";
+        public const string Id = "conduit";
 
         public static Plugin Instance;     // for the config menu to reach scan/config-apply
 
-        private QmConfig _cfg;
+        private ConduitConfig _cfg;
         private int _frame;
         private int _intervalFrames = 240;          // recomputed from config once loaded (~60 fps)
         private int _hkCooldown;
@@ -39,7 +39,7 @@ namespace Quartermaster
             try
             {
                 Instance = this;
-                _cfg = QmConfig.Load();
+                _cfg = ConduitConfig.Load();
                 if (_cfg.LoadError != null) Log("config load error (using defaults): " + _cfg.LoadError);
                 _commands = new Commands(_cfg);
                 _intervalFrames = Math.Max(30, (int)(_cfg.ScanIntervalSeconds * 60.0));
@@ -71,10 +71,10 @@ namespace Quartermaster
         // manual=true shows a HUD pop-up on completion; auto syncs optionally announce in chat.
         private void ScanAndSend(bool manual)
         {
-            if (_sending) { if (manual) Notify.Hud("Quartermaster: a sync is already running"); return; }
+            if (_sending) { if (manual) Notify.Hud("Conduit: a sync is already running"); return; }
             var env = Scanner.Scan(_cfg);
             int count = env.Packets.Count;
-            if (count == 0) { if (manual) Notify.Hud("Quartermaster: no [QM:...] packets in reach to sync"); return; }
+            if (count == 0) { if (manual) Notify.Hud("Conduit: no [CDT:...] packets in reach to sync"); return; }
             _sending = true;
             ThreadPool.QueueUserWorkItem(_ =>
             {
@@ -136,7 +136,7 @@ namespace Quartermaster
             }
         }
 
-        // Open the config / link menu (from the hotkey or the /qm link chat command). Main thread only.
+        // Open the config / link menu (from the hotkey or the /conduit link chat command). Main thread only.
         public void OpenMenu()
         {
             try { MyGuiSandbox.AddScreen(new ConfigScreen(_cfg)); } catch (Exception ex) { Log("menu open failed: " + ex.Message); }

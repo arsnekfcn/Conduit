@@ -5,15 +5,15 @@ using VRage.Game;
 using VRage.Utils;
 using VRageMath;
 
-namespace Quartermaster
+namespace Conduit
 {
     // Ctrl+Shift+Home config menu: destination URL, auth (mode-adaptive: bearer token, or full oauth2_cc
     // client config), online/offline sinks, sync frequency, the Steam "Link account" onboarding + Wipe auth,
     // and a live status line.
     public class ConfigScreen : MyGuiScreenDebugBase
     {
-        private readonly QmConfig _cfg;
-        private MyGuiControlTextbox _url, _freq, _token, _tokenUrl, _clientId, _clientSecret, _scope;
+        private readonly ConduitConfig _cfg;
+        private MyGuiControlTextbox _url, _serverId, _freq, _token, _onboardUrl, _tokenUrl, _clientId, _clientSecret, _scope;
         private MyGuiControlCheckbox _online, _offline, _chat;
         private string _authMode;
         private static readonly string[] AuthModes = { "none", "bearer", "oauth2_cc" };
@@ -22,67 +22,71 @@ namespace Quartermaster
         private const float CtrlX = -0.05f;
         private const float RowH = 0.035f;
 
-        public ConfigScreen(QmConfig cfg)
-            : base(new Vector2(0.5f, 0.5f), new Vector2(0.66f, 0.80f), Brand.Bg, isTopMostScreen: false)
+        public ConfigScreen(ConduitConfig cfg)
+            : base(new Vector2(0.5f, 0.5f), new Vector2(0.66f, 0.86f), Brand.Bg, isTopMostScreen: false)
         {
             _cfg = cfg;
             _authMode = string.IsNullOrEmpty(cfg.AuthMode) ? "none" : cfg.AuthMode.Trim().ToLowerInvariant();
             RecreateControls(true);
         }
 
-        public override string GetFriendlyName() => "QuartermasterConfig";
+        public override string GetFriendlyName() => "ConduitConfig";
 
         public override void RecreateControls(bool constructor)
         {
             base.RecreateControls(constructor);
-            _token = _tokenUrl = _clientId = _clientSecret = _scope = null;   // mode-dependent; reset stale refs
+            _token = _onboardUrl = _tokenUrl = _clientId = _clientSecret = _scope = null;   // mode-dependent; reset stale refs
 
-            Center(Brand.Faction, -0.37f, Brand.Accent, 0.9f);
-            Center(Brand.Product, -0.342f, Brand.AccentDim, 0.72f);
-            Center("Configure where your fleet logistics data is sent.", -0.314f, Brand.Muted, 0.66f);
+            Center(Brand.Faction, -0.40f, Brand.Accent, 0.9f);
+            Center(Brand.Product, -0.373f, Brand.AccentDim, 0.72f);
+            Center("Pipe tagged [CDT:...] Custom Data to a backend you run.", -0.346f, Brand.Muted, 0.66f);
 
             // ---- status + onboarding ----
             Vector4 sc; string st = StatusText(out sc);
-            Center(st, -0.274f, sc, 0.8f);
-            MakeBtn("Link account (Steam)", new Vector2(-0.105f, -0.228f), new Vector2(0.30f, 0.042f),
-                () => { CloseScreen(false); Onboard.Begin(_cfg); });
-            MakeBtn("Wipe auth", new Vector2(0.145f, -0.228f), new Vector2(0.16f, 0.042f), WipeAuth);
+            Center(st, -0.306f, sc, 0.8f);
+            MakeBtn("Link account (Steam)", new Vector2(-0.105f, -0.26f), new Vector2(0.30f, 0.042f),
+                () => { CaptureEdits(); CloseScreen(false); Onboard.Begin(_cfg); });
+            MakeBtn("Wipe auth", new Vector2(0.145f, -0.26f), new Vector2(0.16f, 0.042f), WipeAuth);
 
-            // ---- endpoint ----
-            AddLabel("Destination URL:", -0.173f);
-            _url = AddBox(-0.173f, _cfg.EndpointUrl, 0.31f);
+            // ---- endpoint + server id ----
+            AddLabel("Destination URL:", -0.205f);
+            _url = AddBox(-0.205f, _cfg.EndpointUrl, 0.31f);
+            AddLabel("Server ID:", -0.16f);
+            _serverId = AddBox(-0.16f, _cfg.ServerId, 0.31f);
 
             // ---- auth mode (cycle) + mode-adaptive fields in the reserved area below ----
-            AddLabel("Auth mode:", -0.128f);
-            MakeBtn("<  " + _authMode + "  >", new Vector2(0.105f, -0.128f), new Vector2(0.31f, 0.038f), CycleAuth);
+            AddLabel("Auth mode:", -0.115f);
+            MakeBtn("<  " + _authMode + "  >", new Vector2(0.105f, -0.115f), new Vector2(0.31f, 0.038f), CycleAuth);
 
             if (_authMode == "bearer")
             {
-                AddLabel("Token (blank=keep):", -0.083f);
-                _token = AddBox(-0.083f, "", 0.31f);
+                AddLabel("Token (blank=keep):", -0.07f);
+                _token = AddBox(-0.07f, "", 0.31f);
+                AddLabel("Onboard URL (Steam):", -0.025f);
+                _onboardUrl = AddBox(-0.025f, _cfg.OnboardUrl, 0.31f);
             }
             else if (_authMode == "oauth2_cc")
             {
-                AddLabel("Token URL:", -0.083f);          _tokenUrl = AddBox(-0.083f, _cfg.TokenUrl, 0.31f);
-                AddLabel("Client ID:", -0.041f);          _clientId = AddBox(-0.041f, _cfg.ClientId, 0.31f);
-                AddLabel("Secret (blank=keep):", 0.001f); _clientSecret = AddBox(0.001f, "", 0.31f);
-                AddLabel("Scope (optional):", 0.043f);    _scope = AddBox(0.043f, _cfg.OAuthScope, 0.31f);
+                AddLabel("Token URL:", -0.07f);          _tokenUrl = AddBox(-0.07f, _cfg.TokenUrl, 0.31f);
+                AddLabel("Client ID:", -0.025f);         _clientId = AddBox(-0.025f, _cfg.ClientId, 0.31f);
+                AddLabel("Secret (blank=keep):", 0.02f); _clientSecret = AddBox(0.02f, "", 0.31f);
+                AddLabel("Scope (optional):", 0.065f);   _scope = AddBox(0.065f, _cfg.OAuthScope, 0.31f);
             }
 
             // ---- sinks + rate ----
-            _online = AddCheck(0.09f, _cfg.Online, "Send online (POST to the URL above)");
-            _offline = AddCheck(0.128f, _cfg.Offline, "Also write an offline batch file");
-            AddLabel("Sync every (seconds):", 0.166f);
-            _freq = AddBox(0.166f, ((int)Math.Round(_cfg.ScanIntervalSeconds)).ToString(), 0.1f);
-            _chat = AddCheck(0.204f, _cfg.ChatOnSync, "Announce each automatic sync in chat");
+            _online = AddCheck(0.11f, _cfg.Online, "Send online (POST to the URL above)");
+            _offline = AddCheck(0.148f, _cfg.Offline, "Also write an offline batch file");
+            AddLabel("Sync every (seconds):", 0.186f);
+            _freq = AddBox(0.186f, ((int)Math.Round(_cfg.ScanIntervalSeconds)).ToString(), 0.1f);
+            _chat = AddCheck(0.24f, _cfg.ChatOnSync, "Announce each automatic sync in chat");
 
             // ---- actions ----
-            MakeBtn("Sync now", new Vector2(-0.12f, 0.258f), new Vector2(0.2f, 0.044f),
+            MakeBtn("Sync now", new Vector2(-0.12f, 0.296f), new Vector2(0.2f, 0.044f),
                 () => { Plugin.Instance?.ManualSync(); });
-            MakeBtn("Save", new Vector2(0.12f, 0.258f), new Vector2(0.2f, 0.044f), OnSave);
-            MakeBtn("Close", new Vector2(0f, 0.312f), new Vector2(0.42f, 0.04f), () => CloseScreen(false));
+            MakeBtn("Save", new Vector2(0.12f, 0.296f), new Vector2(0.2f, 0.044f), OnSave);
+            MakeBtn("Close", new Vector2(0f, 0.348f), new Vector2(0.42f, 0.04f), () => CloseScreen(false));
 
-            Center(Brand.Classified, 0.355f, Brand.AccentDim, 0.55f);
+            Center(Brand.Classified, 0.39f, Brand.AccentDim, 0.55f);
         }
 
         private string StatusText(out Vector4 color)
@@ -109,11 +113,13 @@ namespace Quartermaster
         private void CaptureEdits()
         {
             if (_url != null) _cfg.EndpointUrl = (_url.Text ?? "").Trim();
+            if (_serverId != null) _cfg.ServerId = (_serverId.Text ?? "").Trim();
             if (_online != null) _cfg.Online = _online.IsChecked;
             if (_offline != null) _cfg.Offline = _offline.IsChecked;
             if (_freq != null) { double s; if (double.TryParse((_freq.Text ?? "").Trim(), out s)) _cfg.ScanIntervalSeconds = Math.Max(1.0, s); }
             if (_chat != null) _cfg.ChatOnSync = _chat.IsChecked;
             if (_token != null) { var t = (_token.Text ?? "").Trim(); if (t.Length > 0) _cfg.TokenPlain = t; }   // blank = keep
+            if (_onboardUrl != null) _cfg.OnboardUrl = (_onboardUrl.Text ?? "").Trim();
             if (_tokenUrl != null) _cfg.TokenUrl = (_tokenUrl.Text ?? "").Trim();
             if (_clientId != null) _cfg.ClientId = (_clientId.Text ?? "").Trim();
             if (_clientSecret != null) { var s = (_clientSecret.Text ?? "").Trim(); if (s.Length > 0) _cfg.ClientSecretPlain = s; }   // blank = keep
@@ -126,7 +132,7 @@ namespace Quartermaster
             _cfg.AuthMode = _authMode;
             _cfg.Save();
             Plugin.Instance?.OnConfigChanged();
-            Notify.Hud("Quartermaster: settings saved", 2500);
+            Notify.Hud("Conduit: settings saved", 2500);
             RecreateControls(false);
         }
 
@@ -151,14 +157,16 @@ namespace Quartermaster
             _cfg.ClientSecretPlain = "";
             _cfg.Save();
             Plugin.Instance?.OnConfigChanged();
-            Notify.Hud("Quartermaster: auth wiped (mode=none, secrets cleared)", 3000);
+            Notify.Hud("Conduit: auth wiped (mode=none, secrets cleared)", 3000);
             RecreateControls(false);
         }
 
         void Center(string text, float y, Vector4 color, float scale) => Controls.Add(Frame.CenterLabel(text, y, color, scale));
 
+        // Field labels are nudged down to line up with the vertical center of their box/button (the textboxes
+        // render a bit taller than RowH, so the box center sits below the row's y).
         void AddLabel(string text, float y)
-            => Controls.Add(new MyGuiControlLabel(new Vector2(LabelX, y), null, text)
+            => Controls.Add(new MyGuiControlLabel(new Vector2(LabelX, y + 0.015f), null, text)
             { OriginAlign = MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_CENTER });
 
         MyGuiControlTextbox AddBox(float y, string text, float width)

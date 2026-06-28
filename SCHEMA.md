@@ -1,4 +1,4 @@
-# Quartermaster Data Contract
+# Conduit Data Contract
 
 The plugin is a **generic, format-agnostic pipe**. It reads tagged data packets out of block **Custom Data**
 and ships them, to a local file (offline) and/or `POST`ed to your endpoint (online), wrapped in a small
@@ -7,11 +7,11 @@ server mod / hand wrote it, and parsed by whatever consumer you point it at.
 
 ## The marker
 
-Any terminal block whose Custom Data begins with **`[QM:<tag>]`** is a packet. The `<tag>` namespaces the
+Any terminal block whose Custom Data begins with **`[CDT:<tag>]`** is a packet. The `<tag>` namespaces the
 data; everything after the first newline is the payload:
 
 ```
-[QM:qm.fleet.v1]
+[CDT:qm.fleet.v1]
 { "grids": [ ... ] }
 ```
 

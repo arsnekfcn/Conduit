@@ -1,19 +1,20 @@
 using System;
 
-namespace Quartermaster
+namespace Conduit
 {
-    // In-game chat commands: "/qm sync | status | link | help".
+    // In-game chat commands: "/conduit (or /cdt) sync | status | link | help".
     public class Commands
     {
-        private readonly QmConfig _cfg;
+        private readonly ConduitConfig _cfg;
 
-        public Commands(QmConfig cfg) { _cfg = cfg; }
+        public Commands(ConduitConfig cfg) { _cfg = cfg; }
 
         public void OnMessage(string messageText, ref bool sendToOthers)
         {
             if (string.IsNullOrWhiteSpace(messageText)) return;
             string t = messageText.Trim();
-            if (!t.StartsWith("/qm", StringComparison.OrdinalIgnoreCase)) return;
+            if (!t.StartsWith("/conduit", StringComparison.OrdinalIgnoreCase)
+                && !t.StartsWith("/cdt", StringComparison.OrdinalIgnoreCase)) return;
             sendToOthers = false;   // don't broadcast the command to chat
 
             string[] parts = t.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
@@ -26,18 +27,18 @@ namespace Quartermaster
                     case "status": Notify.Chat(StatusLine()); break;
                     case "link": Plugin.Instance?.OpenMenu(); break;
                     default:
-                        Notify.Chat("Quartermaster: /qm sync (force a sync) | status | link (settings/onboarding) | help");
+                        Notify.Chat("Conduit: /conduit sync (force a sync) | status | link (settings/onboarding) | help");
                         break;
                 }
             }
-            catch (Exception ex) { Plugin.Log("command failed: " + ex.Message); Notify.Chat("Quartermaster: command error (see log)."); }
+            catch (Exception ex) { Plugin.Log("command failed: " + ex.Message); Notify.Chat("Conduit: command error (see log)."); }
         }
 
         private void Sync()
         {
             var p = Plugin.Instance;
-            if (p == null) { Notify.Chat("Quartermaster: not ready."); return; }
-            Notify.Chat("Quartermaster: syncing...");
+            if (p == null) { Notify.Chat("Conduit: not ready."); return; }
+            Notify.Chat("Conduit: syncing...");
             p.ManualSync();
         }
 
@@ -47,7 +48,7 @@ namespace Quartermaster
             string age = SyncStatus.LastSyncTicksUtc == 0
                 ? "never"
                 : (int)Math.Max(0, (DateTime.UtcNow.Ticks - SyncStatus.LastSyncTicksUtc) / TimeSpan.TicksPerSecond) + "s ago";
-            return $"Quartermaster [{mode}]: last sync {age}, {SyncStatus.LastGridCount} grid(s), {CodeText(SyncStatus.LastOnlineCode)}";
+            return $"Conduit [{mode}]: last sync {age}, {SyncStatus.LastGridCount} grid(s), {CodeText(SyncStatus.LastOnlineCode)}";
         }
 
         private static string CodeText(int code)

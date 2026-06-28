@@ -7,7 +7,7 @@ using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 
-namespace Quartermaster
+namespace Conduit
 {
     // Turns a scanned Envelope into the SCHEMA.md JSON and hands it to every enabled sink:
     //   Offline  -> write the batch to a local file (pipe it wherever; BYO uploader)
@@ -28,7 +28,7 @@ namespace Quartermaster
         public static string Serialize(Envelope env) => JsonConvert.SerializeObject(env, Settings);
 
         // Returns the online result: 200 ok | HTTP code | 0 = offline-only/no online | -1 = network error.
-        public static int Send(QmConfig cfg, Envelope env)
+        public static int Send(ConduitConfig cfg, Envelope env)
         {
             string json = Serialize(env);
             int n = env.Packets.Count;
@@ -53,7 +53,7 @@ namespace Quartermaster
             return code;
         }
 
-        private static void WriteOffline(QmConfig cfg, string json, int gridCount)
+        private static void WriteOffline(ConduitConfig cfg, string json, int gridCount)
         {
             try
             {
@@ -65,7 +65,7 @@ namespace Quartermaster
             catch (Exception ex) { Plugin.Log("offline write failed: " + ex.Message); }
         }
 
-        private static int Post(QmConfig cfg, string json, int gridCount)
+        private static int Post(ConduitConfig cfg, string json, int gridCount)
         {
             try
             {
@@ -83,7 +83,7 @@ namespace Quartermaster
             catch (Exception ex) { Plugin.Log("post failed: " + ex.Message); return -1; }
         }
 
-        private static HttpStatusCode SendOnce(QmConfig cfg, string json, bool forceRefresh)
+        private static HttpStatusCode SendOnce(ConduitConfig cfg, string json, bool forceRefresh)
         {
             using (var req = new HttpRequestMessage(HttpMethod.Post, cfg.EndpointUrl))
             {
@@ -94,7 +94,7 @@ namespace Quartermaster
             }
         }
 
-        private static void ApplyAuth(QmConfig cfg, HttpRequestMessage req, bool forceRefresh)
+        private static void ApplyAuth(ConduitConfig cfg, HttpRequestMessage req, bool forceRefresh)
         {
             switch ((cfg.AuthMode ?? "none").ToLowerInvariant())
             {

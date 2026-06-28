@@ -4,11 +4,11 @@ using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
 
-namespace Quartermaster
+namespace Conduit
 {
-    // Local config, loaded from %APPDATA%\Quartermaster\config.json (created with defaults on first run).
+    // Local config, loaded from %APPDATA%\Conduit\config.json (created with defaults on first run).
     // Nothing secret is baked into the public plugin: the endpoint URL + auth are the operator's own values.
-    public class QmConfig
+    public class ConduitConfig
     {
         // ── Sinks ──────────────────────────────────────────────────────────────────
         // Each scan builds one SCHEMA.md envelope and hands it to every enabled sink (both may run).
@@ -16,7 +16,7 @@ namespace Quartermaster
 
         // Offline sink: write each batch to OfflinePath (then pipe it wherever. Your own uploader, git, S3…).
         public bool Offline = true;
-        // Empty => %APPDATA%\Quartermaster\offline\quartermaster-batch.json
+        // Empty => %APPDATA%\Conduit\offline\conduit-batch.json
         public string OfflinePath = "";
 
         // Online sink: POST each batch to your endpoint. No-op while EndpointUrl is empty.
@@ -56,12 +56,12 @@ namespace Quartermaster
         public bool HotkeyCtrl = true;
         public bool HotkeyShift = true;
 
-        // Menu hotkey: opens the in-game Quartermaster config menu (destination URL, online/offline sinks,
+        // Menu hotkey: opens the in-game Conduit config menu (destination URL, online/offline sinks,
         // sync rate, link status, and the Steam "Link account" onboarding). Default Ctrl+Shift+Home.
         public string LinkHotkeyKey = "Home";
         public bool LinkHotkeyCtrl = true;
         public bool LinkHotkeyShift = true;
-        // Operator onboarding URL, e.g. https://host/quartermaster/auth/steam/login
+        // Operator onboarding URL, e.g. https://host/conduit/auth/steam/login
         public string OnboardUrl = "";
 
         // "ownOnly" = grids you personally own; "faction" = also same-faction grids. Blocks are share-gated regardless, you can only read what you would have access to.
@@ -71,22 +71,22 @@ namespace Quartermaster
         [JsonIgnore] public string LoadError;
 
         public static string Dir =>
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Quartermaster");
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Conduit");
 
         private static string Path_ => Path.Combine(Dir, "config.json");
 
-        public static QmConfig Load()
+        public static ConduitConfig Load()
         {
             try
             {
                 Directory.CreateDirectory(Dir);
                 if (!File.Exists(Path_))
                 {
-                    var fresh = new QmConfig();
+                    var fresh = new ConduitConfig();
                     File.WriteAllText(Path_, JsonConvert.SerializeObject(fresh, Formatting.Indented));
                     return fresh;
                 }
-                var cfg = JsonConvert.DeserializeObject<QmConfig>(File.ReadAllText(Path_)) ?? new QmConfig();
+                var cfg = JsonConvert.DeserializeObject<ConduitConfig>(File.ReadAllText(Path_)) ?? new ConduitConfig();
                 cfg.ResolveSecrets();   // decrypt on-disk secrets into the *Plain fields, normalize disk to DPAPI
                 // Re-canonicalize: rewrite the file so newly-added fields appear (with defaults) for the user
                 // to edit, while preserving any values they've already set. Avoids stale-config surprises.
@@ -97,14 +97,14 @@ namespace Quartermaster
             }
             catch (Exception ex)
             {
-                return new QmConfig { LoadError = ex.Message };
+                return new ConduitConfig { LoadError = ex.Message };
             }
         }
 
         public string ResolveOfflinePath()
         {
             return string.IsNullOrWhiteSpace(OfflinePath)
-                ? Path.Combine(Dir, "offline", "quartermaster-batch.json")
+                ? Path.Combine(Dir, "offline", "conduit-batch.json")
                 : OfflinePath;
         }
 

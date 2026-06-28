@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 
-namespace Quartermaster
+namespace Conduit
 {
     // Schema v2.0: a generic, format-AGNOSTIC envelope. The plugin reads tagged Custom Data packets
-    // ("[QM:<tag>]\n<payload>") off grids you can vanilla-access and forwards them verbatim. It does not
+    // ("[CDT:<tag>]\n<payload>") off grids you can vanilla-access and forwards them verbatim. It does not
     // interpret the payload: any script-collectable data is piped out cleanly, and consumers do whatever
     // they want with it.
     public class Envelope
@@ -31,7 +31,7 @@ namespace Quartermaster
 
     public class Packet
     {
-        public string Tag;            // the <tag> from "[QM:<tag>]" namespaces the data
+        public string Tag;            // the <tag> from "[CDT:<tag>]" namespaces the data
         public PacketSource Source;
         public object Payload;        // a parsed JSON token when the payload is valid JSON, else the raw string
     }

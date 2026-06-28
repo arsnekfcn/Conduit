@@ -1,12 +1,12 @@
-# Quartermaster
+# Conduit
 **NOTICE OF PROPRIETARY SYSTEMS.**
-You are accessing QUARTERMASTER™, a sanctioned fleet-logistics telemetry apparatus,
+You are accessing CONDUIT™, a sanctioned data-conduit apparatus,
 brought to you by the Formidan Mandate.
 
-## What is Quartermaster
+## What is Conduit
 A Space Engineers plugin, loaded via **Pulsar**, that pipes **tagged data packets out of block Custom Data**
 to a backend you run (or a local file). It is a generic, **format-agnostic pipe**: it reads any block whose
-Custom Data begins with the marker **`[QM:<tag>]`**, wraps each packet in a small standard envelope, and ships
+Custom Data begins with the marker **`[CDT:<tag>]`**, wraps each packet in a small standard envelope, and ships
 it. **It never interprets the payload, and never senses anything itself.**
 
 The access guardrail is mechanical: the plugin reads Custom Data **only on grids you can vanilla-access right now**.
@@ -15,31 +15,31 @@ So it can only ever forward data a vanilla script, mod, or player could have wri
 you could open yourself.
 Data contract: **[SCHEMA.md](SCHEMA.md)**. Trust model: **[SECURITY.md](SECURITY.md)**.
 
-It is **bring-your-own-backend**: the plugin only *extracts and ships*. There is **no Quartermaster server
+It is **bring-your-own-backend**: the plugin only *extracts and ships*. There is **no Conduit server
 operated by the author.** It sends only to the endpoint you configure, or to a local file.
 
-Skinned as a **Formidan Mandate** proprietary corp module. The skin is cosmetic; the tool is "Quartermaster".
+Skinned as a **Formidan Mandate** proprietary corp module. The skin is cosmetic; the tool is "Conduit".
 
 ---
 
 ## What it does
 
 ### Pipe (the whole job)
-- **Reads tagged packets:** any terminal block whose Custom Data begins with **`[QM:<tag>]`** is a packet. The
+- **Reads tagged packets:** any terminal block whose Custom Data begins with **`[CDT:<tag>]`** is a packet. The
   plugin forwards the payload **verbatim** under its tag. It does not parse or understand it. What a packet
   *means* is up to whatever wrote it and whatever consumes it.
 - **A small envelope** adds who/where collected (`observer`, `world`) and the source grid / block / faction,
   then ships the batch. Consumers dedup by the grid's replicated **EntityId**. See [SCHEMA.md](SCHEMA.md).
 
-### Feeding it: write a `[QM:<tag>]` packet
-Anything that can write block Custom Data can feed Quartermaster. A Programmable Block script, a server mod, or
+### Feeding it: write a `[CDT:<tag>]` packet
+Anything that can write block Custom Data can feed Conduit. A Programmable Block script, a server mod, or
 you by hand. The **Quartermaster Companion** (a separate, ready-made vanilla PB script) publishes a
 fleet-logistics packet under tag `qm.fleet.v1`. Inventory, production, power/gas, weapons, as a working
-example. It's **optional, not required**: the plugin reads any `[QM:...]` packet, whatever the source.
+example. It's **optional, not required**: the plugin reads any `[CDT:...]` packet, whatever the source.
 
 ### In-game commands
-- `/qm sync`: force a sync now · `/qm status`: last-sync mode / age / grid count / result ·
-  `/qm link`: open settings + Steam onboarding · `/qm help`.
+- `/conduit sync`: force a sync now · `/conduit status`: last-sync mode / age / grid count / result ·
+  `/conduit link`: open settings + Steam onboarding · `/conduit help`.
 
 ### Ship it: Two options
 - **Offline**: write each batch to a local JSON file you can pipe anywhere by whatever mechanism you please.
@@ -65,12 +65,12 @@ example. It's **optional, not required**: the plugin reads any `[QM:...]` packet
 rest uses **Windows DPAPI**; on non-Windows runtimes the token still works but is **not encrypted on disk**, so
 prefer Windows for token-authenticated backends. Offline / no-auth use has no such caveat.
 
-1. In Pulsar, add **Quartermaster** from the plugin list and enable it; restart SE.
+1. In Pulsar, add **Conduit** from the plugin list and enable it; restart SE.
 2. Open the config menu (**Ctrl+Shift+Home**), set your **Destination URL** (or leave online off and use
    the offline file), and **Save**.
 3. If your backend uses token auth, click **Link account (Steam)**.
 
-Config also lives at `%APPDATA%\Quartermaster\config.json` if you prefer editing by hand.
+Config also lives at `%APPDATA%\Conduit\config.json` if you prefer editing by hand.
 
 ## Build locally
 Requires a Space Engineers install. Point `SeBin64` at your `...\SpaceEngineers\Bin64` (a local
@@ -81,7 +81,7 @@ Pulsar's from-source build (PluginHub) ignores that and restores Newtonsoft from
 `docs/plugins/BUILDING.md`.
 
 ## The backend is yours
-Quartermaster ships **no backend**. It defines a data contract ([SCHEMA.md](SCHEMA.md)); you build, or
+Conduit ships **no backend**. It defines a data contract ([SCHEMA.md](SCHEMA.md)); you build, or
 borrow, a server that ingests it. A FastAPI + Postgres/TimescaleDB + Grafana stack is one proven way, but
 anything that accepts the documented JSON works.
 

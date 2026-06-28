@@ -1,12 +1,12 @@
 # Security & trust
 
-Quartermaster is open source. Read the code and verify these claims yourself. This document covers where
+Conduit is open source. Read the code and verify these claims yourself. This document covers where
 your data and credentials go, what the plugin can and can't do, and the question that matters most:
 **can the plugin author, or another player, see your data? No.**
 
 ## TL;DR
 
-- **There is no Quartermaster backend operated by the author.** The plugin sends your data **only** to the
+- **There is no Conduit backend operated by the author.** The plugin sends your data **only** to the
   endpoint *you* configure (`EndpointUrl`), and/or writes it to a local file. There is no code path that
   routes it anywhere else. Not to the author, not to anyone. That's a property of the open source you can read.
 - Your **auth token is stored encrypted** (Windows DPAPI, per user) and is sent **only** to your endpoint,
@@ -15,7 +15,7 @@ your data and credentials go, what the plugin can and can't do, and the question
   through Space Engineers' multiplayer replication, so **other players (and server-side mods) cannot read
   it.** TLS protects it in transit.
 - **Only what you can vanilla-access.** A grid's data is collected only when a block on it carries a
-  `[QM:<tag>]` packet in its Custom Data **and** you can access that grid in-game right now — controlling it,
+  `[CDT:<tag>]` packet in its Custom Data **and** you can access that grid in-game right now — controlling it,
   physically at it, or within a broadcasting antenna's range — limited to your own / faction grids. The plugin
   never scans grid contents itself; it only forwards a packet that a vanilla script, mod, or player wrote on a
   grid whose terminal you could open yourself. (A companion PB script is one way to produce that packet; any
@@ -26,7 +26,7 @@ your data and credentials go, what the plugin can and can't do, and the question
 
 ## The reach gate — what "vanilla-access" means
 
-A grid's `[QM:...]` packets are read only when **two independent gates both pass**: (a) the grid is **own or
+A grid's `[CDT:...]` packets are read only when **two independent gates both pass**: (a) the grid is **own or
 same-faction** — enemy / neutral / **allied** / unowned are all excluded (cross-faction allies deliberately so,
 since you can't open an allied faction's terminals in vanilla) — **and** (b) you can **reach** it right now one
 of the three vanilla ways: controlling the construct, on foot within control-panel range (~20 m), or within the
@@ -42,11 +42,11 @@ are excluded entirely, and no position is ever transmitted.
 
 ## What the plugin sends, and where
 
-Each sync collects the `[QM:<tag>]` packets from the own/faction grids you can vanilla-access (see
+Each sync collects the `[CDT:<tag>]` packets from the own/faction grids you can vanilla-access (see
 [SCHEMA.md](SCHEMA.md) for the envelope), wraps them in one batch, and hands it to whichever sinks you
 enabled:
 
-- **Offline sink** → a local file (`%APPDATA%\Quartermaster\offline\…`), which you can do anything with.
+- **Offline sink** → a local file (`%APPDATA%\Conduit\offline\…`), which you can do anything with.
 - **Online sink** → an HTTPS POST to `EndpointUrl`, with the auth header for your chosen mode.
 
 The plugin's only outbound network calls are: (1) your configured `EndpointUrl`, (2) during account linking,
@@ -76,7 +76,7 @@ response nonce, return-URL validation), but two honest caveats remain, inherent 
 ## Can the plugin author access your data? No.
 
 There is no author-operated server and no hidden endpoint. The plugin posts to the URL you set and nowhere
-else. The author cannot see your fleet data or your token. This is verifiable in the source (`Sender.cs`,
+else. The author cannot see your data or your token. This is verifiable in the source (`Sender.cs`,
 `OAuth.cs`, `Onboard.cs` are the only files that touch the network).
 
 ## For backend operators
@@ -85,7 +85,7 @@ The plugin is a push-only collector; your server holds the data and decides who 
 backend implements all of the following — **enable them** (some are opt-in), and don't rely on a shared
 default token:
 - Issue **per-member** credentials, not one shared secret (revoke one without affecting others).
-- Split **ingest** vs **read** scope — a leaked push token then can't read your fleet intel.
+- Split **ingest** vs **read** scope — a leaked push token then can't read your data.
 - **Bind** each credential to one `observer.steamId` and reject mismatches (a leaked token can't impersonate
   another member). Turn on bound-ingest enforcement so unbound tokens are rejected.
 - Rate-limit ingest and onboarding; keep the onboarding allow-list tight.

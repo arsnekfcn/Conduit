@@ -6,7 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 
-namespace Quartermaster
+namespace Conduit
 {
     // In-game Steam onboarding. Opens the operator's /auth/steam/login in the Steam overlay browser (already
     // signed into the user's Steam account), runs a one-shot localhost loopback listener, and when the backend
@@ -21,11 +21,12 @@ namespace Quartermaster
     {
         private static volatile TcpListener _current;   // the active attempt; a repeat press supersedes it
 
-        public static void Begin(QmConfig cfg)
+        public static void Begin(ConduitConfig cfg)
         {
-            if (string.IsNullOrWhiteSpace(cfg.OnboardUrl)) { Plugin.Log("onboard: set OnboardUrl in config first"); return; }
+            if (string.IsNullOrWhiteSpace(cfg.OnboardUrl))
+            { Notify.Hud("Conduit: set the Onboard URL first (auth mode = bearer), then Link"); return; }
             if (!cfg.OnboardUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && !cfg.AllowInsecureEndpoint)
-            { Plugin.Log("onboard: OnboardUrl is not https (the one-time code + returned token would be cleartext). Use https, or set AllowInsecureEndpoint=true."); return; }
+            { Notify.Hud("Conduit: Onboard URL must be https (or set AllowInsecureEndpoint)"); return; }
 
             TcpListener listener;
             string state, url;
@@ -49,7 +50,7 @@ namespace Quartermaster
         }
 
         // Background: wait for the backend to redirect the token to our loopback.
-        private static void Wait(TcpListener listener, string state, QmConfig cfg)
+        private static void Wait(TcpListener listener, string state, ConduitConfig cfg)
         {
             try
             {
@@ -93,7 +94,7 @@ namespace Quartermaster
 
         // Exchange the one-time onboarding code for the actual token via a direct HTTPS POST to the backend.
         // The token never appears in a browser URL/history — only this opaque single-use code does.
-        private static string ClaimToken(QmConfig cfg, string code)
+        private static string ClaimToken(ConduitConfig cfg, string code)
         {
             try
             {
@@ -152,7 +153,7 @@ namespace Quartermaster
         private static void Respond(NetworkStream s, bool ok)
         {
             string body = ok
-                ? "<h2>Quartermaster linked.</h2><p>You can close this and return to the game.</p>"
+                ? "<h2>Conduit linked.</h2><p>You can close this and return to the game.</p>"
                 : "<h2>Link failed.</h2><p>Mismatched request - start onboarding again from the game.</p>";
             string resp = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n"
                 + "Content-Length: " + Encoding.UTF8.GetByteCount(body) + "\r\n\r\n" + body;

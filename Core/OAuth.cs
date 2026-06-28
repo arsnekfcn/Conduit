@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using Newtonsoft.Json.Linq;
 
-namespace Quartermaster
+namespace Conduit
 {
     // OAuth2 client-credentials token cache for the online sink. Fetches a bearer token from the
     // operator's token endpoint (their IdP / API gateway), caches it until shortly before expiry,
@@ -14,7 +14,7 @@ namespace Quartermaster
         private static string _token;
         private static DateTime _expiresUtc = DateTime.MinValue;
 
-        public static string GetToken(QmConfig cfg, HttpClient http, bool forceRefresh = false)
+        public static string GetToken(ConduitConfig cfg, HttpClient http, bool forceRefresh = false)
         {
             lock (Lock)
             {

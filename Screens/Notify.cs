@@ -2,7 +2,7 @@ using System;
 using Sandbox;
 using Sandbox.ModAPI;
 
-namespace Quartermaster
+namespace Conduit
 {
     // Main-thread HUD pop-ups + chat messages. ShowNotification/ShowMessage must run on the game thread;
     // sync runs on a background thread, so marshal back via MySandboxGame.Static.Invoke.
@@ -10,7 +10,7 @@ namespace Quartermaster
     {
         public static void OnMain(Action a)
         {
-            try { var g = MySandboxGame.Static; if (g != null) g.Invoke(a, "Quartermaster"); }
+            try { var g = MySandboxGame.Static; if (g != null) g.Invoke(a, "Conduit"); }
             catch (Exception ex) { Plugin.Log("notify failed: " + ex.Message); }
         }
 
@@ -18,7 +18,7 @@ namespace Quartermaster
             => OnMain(() => { try { MyAPIGateway.Utilities?.ShowNotification(text, ms); } catch { /* HUD toast is cosmetic + best-effort; a failed notification must not surface or recurse */ } });
 
         public static void Chat(string text)
-            => OnMain(() => { try { MyAPIGateway.Utilities?.ShowMessage("Quartermaster", text); } catch { /* same: a failed chat line is cosmetic and must not throw on the main thread */ } });
+            => OnMain(() => { try { MyAPIGateway.Utilities?.ShowMessage("Conduit", text); } catch { /* same: a failed chat line is cosmetic and must not throw on the main thread */ } });
     }
 
     // Last-sync result, shown as the "linked?" status in the config menu.

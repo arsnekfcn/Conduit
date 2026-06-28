@@ -2,9 +2,9 @@
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
-    <!-- Output DLL is Quartermaster.dll so Pulsar lists it as "Quartermaster". -->
-    <AssemblyName>Quartermaster</AssemblyName>
-    <RootNamespace>Quartermaster</RootNamespace>
+    <!-- Output DLL is Conduit.dll so Pulsar lists it as "Conduit". -->
+    <AssemblyName>Conduit</AssemblyName>
+    <RootNamespace>Conduit</RootNamespace>
     <LangVersion>latest</LangVersion>
     <Platforms>x64</Platforms>
     <Configurations>Debug;Release</Configurations>

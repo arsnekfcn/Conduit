@@ -9,17 +9,17 @@ using VRageMath;
 using IngameTerminal = Sandbox.ModAPI.Ingame.IMyTerminalBlock;
 using IngameAntenna = Sandbox.ModAPI.Ingame.IMyRadioAntenna;
 
-namespace Quartermaster
+namespace Conduit
 {
-    // Generic tagged-CustomData pipe. Reads any block whose Custom Data begins with "[QM:<tag>]", but ONLY
+    // Generic tagged-CustomData pipe. Reads any block whose Custom Data begins with "[CDT:<tag>]", but ONLY
     // on grids you can vanilla-access right now: own/shared faction, and either controlling it, on foot at it, or
     // within a broadcasting antenna's range. It forwards each packet verbatim and never interprets the
     // payload. it can only ever read what a vanilla script / server mod / hand could put on a grid whose terminal you could open yourself.
     public static class Scanner
     {
-        private const string Marker = "[QM:";
+        private const string Marker = "[CDT:";
 
-        public static Envelope Scan(QmConfig cfg)
+        public static Envelope Scan(ConduitConfig cfg)
         {
             var env = new Envelope { CapturedAtUtc = DateTime.UtcNow.ToString("o") };
             var session = MyAPIGateway.Session;
@@ -80,7 +80,7 @@ namespace Quartermaster
             return env;
         }
 
-        // "[QM:<tag>]\n<payload>" -> Packet. Payload is parsed JSON when valid, else the raw string.
+        // "[CDT:<tag>]\n<payload>" -> Packet. Payload is parsed JSON when valid, else the raw string.
         private static Packet ParsePacket(string cd, IMyCubeGrid grid, IngameTerminal block, string facTag)
         {
             int close = cd.IndexOf(']');
