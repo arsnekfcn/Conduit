@@ -21,7 +21,7 @@ namespace Conduit
                 if (!forceRefresh && _token != null && DateTime.UtcNow < _expiresUtc)
                     return _token;
 
-                // The client secret travels to TokenUrl — require HTTPS (same gate as the online sink) unless
+                // The client secret travels to TokenUrl, require HTTPS (same gate as the online sink) unless
                 // the operator explicitly allows an insecure endpoint.
                 if (!string.IsNullOrEmpty(cfg.TokenUrl)
                     && !cfg.TokenUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)

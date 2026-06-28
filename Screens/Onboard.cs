@@ -10,7 +10,7 @@ namespace Conduit
 {
     // In-game Steam onboarding. Opens the operator's /auth/steam/login in the Steam overlay browser (already
     // signed into the user's Steam account), runs a one-shot localhost loopback listener, and when the backend
-    // redirects the verified token back to it, writes the token into config — no copy/paste, no external browser.
+    // redirects the verified token back to it, writes the token into config.
     //
     // Threading: Begin() runs on the MAIN game thread (called from the hotkey handler) and opens the URL there
     // because the overlay/GUI call is not thread-safe. Only the blocking accept-loop runs on a background thread.
@@ -57,9 +57,9 @@ namespace Conduit
                 var deadline = DateTime.UtcNow.AddMinutes(3);
                 while (DateTime.UtcNow < deadline)
                 {
-                    if (_current != listener) return;   // a newer press superseded us — exit quietly
+                    if (_current != listener) return;   // a newer press superseded us, exit quietly
                     try { if (!listener.Pending()) { Thread.Sleep(200); continue; } }
-                    catch { return; /* listener faulted/closed (e.g. a newer attempt superseded it) — stop waiting quietly */ }
+                    catch { return; /* listener faulted/closed (e.g. a newer attempt superseded it)*/ }
                     using (var client = listener.AcceptTcpClient())
                     {
                         client.ReceiveTimeout = 4000;
@@ -89,11 +89,10 @@ namespace Conduit
                 Plugin.Log("onboard: timed out waiting for Steam sign-in");
             }
             catch (Exception ex) { Plugin.Log("onboard failed: " + ex.Message); }
-            finally { try { listener.Stop(); } catch { /* already stopped/faulted — nothing to do */ } if (_current == listener) _current = null; }
+            finally { try { listener.Stop(); } catch { /* already stopped/faulted, nothing to do */ } if (_current == listener) _current = null; }
         }
 
         // Exchange the one-time onboarding code for the actual token via a direct HTTPS POST to the backend.
-        // The token never appears in a browser URL/history — only this opaque single-use code does.
         private static string ClaimToken(ConduitConfig cfg, string code)
         {
             try
@@ -146,7 +145,7 @@ namespace Conduit
                     if (pair.Substring(0, eq) == key) return Uri.UnescapeDataString(pair.Substring(eq + 1));
                 }
             }
-            catch { /* malformed request line — treat as "param not present" */ }
+            catch { /* malformed request line, treat as "param not present" */ }
             return null;
         }
 
@@ -215,7 +214,7 @@ namespace Conduit
             if (t != null) return t;
             foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
             {
-                try { t = a.GetType(fullName); if (t != null) return t; } catch { /* some assemblies throw on GetType (dynamic/reflection-only) — skip and try the next */ }
+                try { t = a.GetType(fullName); if (t != null) return t; } catch { /* some assemblies throw on GetType (dynamic/reflection-only), skip and try the next */ }
             }
             return null;
         }

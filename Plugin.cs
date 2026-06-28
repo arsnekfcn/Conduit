@@ -10,7 +10,7 @@ using VRage.Utils;
 namespace Conduit
 {
     // Conduit plugin entry point (client-side, Pulsar/Legacy net48). Periodically reads [CDT:<tag>] Custom
-    // Data packets off own/faction grids you can vanilla-access and ships them to a backend (or the dry-run
+    // Data packets off own/faction grids you can vanilla-access and ships them to a backend (or a local
     // file). The Custom Data read runs on the main/update thread; serialization + network go to a bg thread.
     public class Plugin : IPlugin
     {
@@ -33,8 +33,7 @@ namespace Conduit
         {
             Log("Init: loading");
             // Newtonsoft.Json ships beside the plugin (separate file) and is a NuGet dep under the from-source
-            // build, so the CLR resolves it normally — no AssemblyResolve shim, and no executing-assembly path
-            // lookups (those throw under Pulsar's in-memory from-source build, where Location is empty).
+            // build, so the CLR resolves it normally
             try { ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12; } catch { /* best-effort TLS bump; if the runtime rejects the OR, its default protocol still negotiates HTTPS */ }
             try
             {

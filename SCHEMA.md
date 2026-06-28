@@ -15,7 +15,7 @@ data; everything after the first newline is the payload:
 { "grids": [ ... ] }
 ```
 
-`<tag>` is free-form (`qm.fleet.v1`, `fsos.health.v1`, `mybase.whatever`). Payload can be anything — JSON,
+`<tag>` is free-form (`qm.fleet.v1`, `mybase.whatever`). Payload can be anything. JSON,
 CSV, key=value, plain text. The plugin parses it as JSON when it is valid JSON (so it rides the wire as
 structured data), otherwise forwards it as a string.
 
@@ -31,20 +31,20 @@ structured data), otherwise forwards it as a string.
     {
       "tag": "qm.fleet.v1",
       "source": { "entityId": 1073…, "gridName": "Butler HQ", "blockName": "QM Hub", "factionTag": "PBC" },
-      "payload": { /* opaque — exactly what the writing script put after the marker */ }
+      "payload": { /* opaque, exactly what the writing script put after the marker */ }
     }
   ]
 }
 ```
 
-- **`observer` / `world`** — who/where the packets were collected, applied to every packet in the batch.
-- **`source`** — the grid + block the packet was read from, and that grid's faction (the plugin's only added
+- **`observer` / `world`**: who/where the packets were collected, applied to every packet in the batch.
+- **`source`**: the grid + block the packet was read from, and that grid's faction (the plugin's only added
   context; useful when the payload itself doesn't carry ownership, e.g. a Programmable Block can't read faction).
-- **`payload`** — verbatim. Consumers dispatch on `tag` and parse accordingly.
+- **`payload`**: verbatim. Consumers dispatch on `tag` and parse accordingly.
 
 ## Example payload: the `qm.fleet.v1` companion format
 
-The companion script (a separate vanilla PB example) writes this under tag `qm.fleet.v1` — one example of a
+The companion script (a separate vanilla PB example) writes this under tag `qm.fleet.v1`, one example of a
 payload; your own scripts can define any other format under any other tag.
 
 ```json
@@ -60,29 +60,29 @@ payload; your own scripts can define any other format under any other tag.
 ```
 
 A consumer that understands `qm.fleet.v1` keys grids by **`(world.serverId, entityId)`** (the cross-observer
-dedup key, newest `capturedAtUtc` wins — and it SHOULD also stamp its own receive time as the authoritative
+dedup key, newest `capturedAtUtc` wins, and it SHOULD also stamp its own receive time as the authoritative
 freshness signal, clamping implausibly-future client clocks). `amount` units: Ore/Ingot = kg; Component/Ammo =
 count. The reference backend maps this payload into inventory / production / telemetry / armament rows and
 attaches the source grid's faction.
 
 ## Forward-compatible
-- Consumers MUST ignore unknown fields and unknown tags (additive evolution).
+- Consumers MUST ignore unknown fields and unknown tags.
 - `schemaVersion` bumps minor for additive envelope changes, major for breaking ones.
 - Multiple packets per batch (different tags, or the same tag from several reachable grids) are normal.
 
 ## Transport & auth
 
 BYO: the plugin only extracts and ships the envelope; what stores/uses it is yours. Each sync it can write the
-batch to a local file (**offline** — pipe it anywhere: your own uploader, git, S3 CLI…) and/or `POST` to your
+batch to a local file (**offline**: pipe it anywhere: your own uploader, git, S3 CLI…) and/or `POST` to your
 endpoint (**online**); both can run at once, body identical. Only the online sink uses auth headers:
 
 - `none`: no auth header.
 - `bearer`: `Authorization: Bearer <token>`.
-- `oauth2_cc`: OAuth2 client-credentials — the plugin fetches/caches/refreshes a token from your `tokenUrl` and
+- `oauth2_cc`: OAuth2 client-credentials, the plugin fetches/caches/refreshes a token from your `tokenUrl` and
   sends it as a bearer. Pure machine-to-machine (Auth0, Keycloak, Azure AD, …).
 
 **Hardening a backend (recommended for faction-share):** issue **per-member** credentials, not one shared
 secret; split **ingest** vs **read** scope; and **bind** each credential to one `observer.steamId`, rejecting
-batches whose `observer.steamId` doesn't match — so a leaked credential can't impersonate another member.
-`steamId` is verifiable out-of-band via Steam OpenID ("Sign in through Steam", no publisher key needed); the
+batches whose `observer.steamId` doesn't match, so a leaked credential can't impersonate another member.
+`steamId` is verifiable out-of-band via Steam OpenID ("Sign in through Steam"); the
 SteamID inside the body alone is self-asserted and must not be trusted as authentication.

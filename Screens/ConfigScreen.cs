@@ -146,7 +146,7 @@ namespace Conduit
             RecreateControls(false);
         }
 
-        // Clear stored credentials and reset to no-auth, persisted immediately — resets a stale/wrong link or a
+        // Clear stored credentials and reset to no-auth, persisted immediately, resets a stale/wrong link or a
         // backend switch without hand-editing config.json. Leaves the (non-secret) URL/ClientID in place.
         private void WipeAuth()
         {

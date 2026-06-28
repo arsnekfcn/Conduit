@@ -48,8 +48,8 @@ example. It's **optional, not required**: the plugin reads any `[CDT:...]` packe
 
 ### In-game UI
 - **Config menu** (default **Ctrl+Shift+Home**): set the destination URL, the **auth mode** (none / bearer /
-  OAuth2 client-credentials) and its fields — a bearer **token**, or the OAuth2 **token URL + client ID +
-  secret + scope** — toggle online/offline, set the sync interval, see your live **link status**, link your
+  OAuth2 client-credentials) and its fields, a bearer **token**, or the OAuth2 **token URL + client ID +
+  secret + scope**, toggle online/offline, set the sync interval, see your live **link status**, link your
   account, and **Wipe auth** to reset. No config-file editing required for any auth mode.
 - **Manual sync** (default **Ctrl+Shift+End**) with a HUD confirmation pop-up.
 - Optional **chat message on every automatic sync**.

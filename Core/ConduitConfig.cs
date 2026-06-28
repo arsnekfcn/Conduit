@@ -12,7 +12,6 @@ namespace Conduit
     {
         // ── Sinks ──────────────────────────────────────────────────────────────────
         // Each scan builds one SCHEMA.md envelope and hands it to every enabled sink (both may run).
-        // This plugin is BYOB: it only extracts and moves the data. Bring your own backend to use the data.
 
         // Offline sink: write each batch to OfflinePath (then pipe it wherever. Your own uploader, git, S3…).
         public bool Offline = true;

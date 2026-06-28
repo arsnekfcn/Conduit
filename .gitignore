@@ -11,15 +11,8 @@ obj/
 # local build override (points SeBin64 at this machine's SE install)
 Directory.Build.props
 
-# local dev convenience (machine-specific deploy path) — keep out of the public repo
+# local dev convenience (machine-specific deploy path)
 deploy.sh
-
-# Private design/working docs — never public.
-PLAN-*.md
-BACKEND.md
-VISUALIZATION.md
-RELEASE-CHECKLIST.md
-PLUGINHUB-COMPLIANCE-TODO.md
 
 # runtime output (offline batches, dry-run, diagnostics, subtype census)
 offline/
@@ -27,5 +20,5 @@ dryrun/
 diag/
 census/
 
-# No committed binary deps — use NuGet PackageReference (deps ship as separate files via deploy.sh)
+# No committed binary deps
 libs/
