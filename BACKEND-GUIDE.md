@@ -32,7 +32,7 @@ Example body (trimmed):
   "schemaVersion": "2.0",
   "capturedAtUtc": "2026-06-28T05:41:13.9Z",
   "observer": { "identityId": 144115188075856777, "steamId": 7656119..., "displayName": "arsnek" },
-  "world":    { "serverId": "formidan", "sessionName": "FCN-SE", "syncDistanceMeters": 10000 },
+  "world":    { "serverId": "my-server", "sessionName": "My World", "syncDistanceMeters": 10000 },
   "packets": [
     {
       "tag": "qm.fleet.v1",

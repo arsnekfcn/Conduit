@@ -28,14 +28,18 @@ your data and credentials go, what the plugin can and can't do, and the question
 
 A grid's `[CDT:...]` packets are read only when **two independent gates both pass**: (a) the grid is **own or
 shared same-faction**. Enemy/neutral/**allied**/unowned are all excluded (cross-faction allies deliberately so,
-since you can't open an allied faction's terminals in vanilla), **and** (b) you can **reach** it right now one
-of the three vanilla ways: controlling the construct, on foot within control-panel range (~20 m), or within the
-range of a **broadcasting antenna on that grid**.
+since you can't open an allied faction's terminals in vanilla), **and** (b) you have its terminal **open to you
+right now** one of the three vanilla ways: controlling its construct (in a cockpit/seat), having its terminal
+screen open, or being within range of a **broadcasting antenna on that grid**. Merely standing next to a grid
+does **not** count; there's no distance heuristic.
 
-One deliberate note on the antenna path: it checks the grid's own broadcasting-antenna radius against your
-position; it does **not** additionally require your character's suit antenna to be relaying. This matches how
-players actually use antenna range. The gate is otherwise conservative: non-broadcasting remote grids and allies
-are excluded entirely, and no position is ever transmitted.
+The antenna path mirrors what the game actually requires for remote terminal access, on **both** ends of the
+link: the grid's antenna must be genuinely live (on, broadcasting, undamaged, **and** powered; a disabled or
+unpowered antenna can't relay), **and** your own relay must be online too (your character's **suit antenna** is
+broadcasting, or, when you're piloting, the ship you control has a live broadcasting antenna). With no relay of
+your own you can't open a remote grid's terminal even if that grid is broadcasting, so the plugin won't read it.
+The gate is otherwise conservative: non-broadcasting remote grids and allies are excluded entirely, and no
+position is ever transmitted.
 
 ## What the plugin sends, and where
 

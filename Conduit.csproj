@@ -13,9 +13,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Restored from NuGet (listed under <NuGetReferences> in the PluginHub manifest) so Pulsar's from-source
-         build resolves it. No committed binary, no embedding — deploy.sh ships Newtonsoft.Json.dll as a
-         separate file next to the plugin (Pulsar loads sibling DLLs). -->
+    <!-- Local/manual build only: resolves Newtonsoft.Json for the dotnet/deploy.sh compile. Pulsar's from-source
+         build IGNORES this csproj and provides Newtonsoft.Json from its own Libraries, so the PluginHub manifest
+         intentionally does NOT list it under <NuGetReferences> (declaring it would risk a duplicate/conflict). -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
