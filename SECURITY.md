@@ -38,8 +38,9 @@ link: the grid's antenna must be genuinely live (on, broadcasting, undamaged, **
 unpowered antenna can't relay), **and** your own relay must be online too (your character's **suit antenna** is
 broadcasting, or, when you're piloting, the ship you control has a live broadcasting antenna). With no relay of
 your own you can't open a remote grid's terminal even if that grid is broadcasting, so the plugin won't read it.
-The gate is otherwise conservative: non-broadcasting remote grids and allies are excluded entirely, and no
-position is ever transmitted.
+The gate is otherwise conservative: non-broadcasting remote grids and allies are excluded entirely. Conduit
+adds no sensing and no location data of its own; a packet carries exactly what an in-game script, mod, or player
+wrote into that block's Custom Data, nothing Conduit could not have read by opening the terminal yourself.
 
 ## What the plugin sends, and where
 
