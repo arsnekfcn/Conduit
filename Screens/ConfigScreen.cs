@@ -56,7 +56,8 @@ namespace Conduit
 
             // ---- auth mode (cycle) + mode-adaptive fields in the reserved area below ----
             AddLabel("Auth mode:", -0.115f);
-            MakeBtn("<  " + _authMode + "  >", new Vector2(0.105f, -0.115f), new Vector2(0.31f, 0.038f), CycleAuth);
+            // nudged down to sit level with its label (labels render at y+0.015; a textbox masks that, a button doesn't)
+            MakeBtn("<  " + _authMode + "  >", new Vector2(0.105f, -0.1075f), new Vector2(0.31f, 0.038f), CycleAuth);
 
             if (_authMode == "bearer")
             {

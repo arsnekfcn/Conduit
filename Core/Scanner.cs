@@ -43,6 +43,9 @@ namespace Conduit
 
             Vector3D playerPos = session.Player?.GetPosition() ?? Vector3D.Zero;
             IMyCubeGrid controlled = ResolveControlledGrid(session);
+            IMyCubeGrid terminalGrid = ResolveOpenTerminalGrid();
+            // gates the antenna-range reach path below (no relay = no remote read)
+            bool relayOnline = LocalRelayOnline(session, controlled);
 
             var entities = new HashSet<IMyEntity>();
             MyAPIGateway.Entities.GetEntities(entities, e => e is IMyCubeGrid);
@@ -58,7 +61,7 @@ namespace Conduit
 
                 slims.Clear();
                 grid.GetBlocks(slims);
-                if (!CanAccess(grid, playerPos, controlled, slims)) continue;       // vanilla reach gate
+                if (!CanAccess(grid, playerPos, controlled, terminalGrid, relayOnline, slims)) continue;   // vanilla reach gate
 
                 string facTag = session.Factions?.TryGetPlayerFaction(ownerId)?.Tag;
                 foreach (var b in slims)
@@ -118,30 +121,63 @@ namespace Conduit
             return (ent as IMyCubeBlock)?.CubeGrid;
         }
 
-        // Vanilla reach. The three ways the game lets you open a grid's terminal:
-        //   (1) you're controlling the construct, 
-        //   (2) you're physically at it (control-panel access), or
-        //   (3) you're within range of a broadcasting antenna ON that grid (suit-antenna access).
-        // Reach model / deliberate design choices (the gate is kept conservative. It excludes more than it must):
-        //   - Ownership is already restricted to own/faction by Evaluate(), so an enemy/neutral antenna can never
-        //     be used here; (3) only ever applies to a grid you could open anyway.
-        //   - (3) tests the grid's own broadcasting-antenna radius against your position. It does NOT additionally
-        //     require your character's suit antenna to be relaying.
-        //   - Non-broadcasting remote grids and cross-faction allies are excluded entirely.
-        //   - Distance is computed locally only.
-        private const double ControlPanelRangeM = 20.0;
-        private static readonly List<IMyCubeGrid> _grp = new List<IMyCubeGrid>();
-        private static bool CanAccess(IMyCubeGrid grid, Vector3D playerPos, IMyCubeGrid controlled, List<IMySlimBlock> slims)
+        // The grid whose terminal/control-panel is open RIGHT NOW (null if none). This is the precise vanilla
+        // "I have this grid's terminal up" signal - not a distance heuristic.
+        private static IMyCubeGrid ResolveOpenTerminalGrid()
         {
-            if (SameMechGroup(grid, controlled)) return true;
-            if (grid.WorldAABB.Distance(playerPos) <= ControlPanelRangeM) return true;   // on foot at the grid
+            try
+            {
+                if (!Sandbox.Game.Gui.MyGuiScreenTerminal.IsOpen) return null;
+                var e = Sandbox.Game.Gui.MyGuiScreenTerminal.InteractedEntity;
+                return e as IMyCubeGrid ?? (e as IMyCubeBlock)?.CubeGrid;
+            }
+            catch { return null; }
+        }
+
+        // Vanilla reach, the three real ways you have a grid's terminal: you control its construct (in a chair),
+        // you have its terminal open, or you're in range of a live broadcasting antenna on it with your own relay
+        // online. NO distance heuristic - merely standing next to a grid doesn't count. Ownership is already
+        // limited to own/faction by Evaluate, so this only applies to grids you could open anyway.
+        private static readonly List<IMyCubeGrid> _grp = new List<IMyCubeGrid>();
+        private static bool CanAccess(IMyCubeGrid grid, Vector3D playerPos, IMyCubeGrid controlled, IMyCubeGrid terminalGrid, bool relayOnline, List<IMySlimBlock> slims)
+        {
+            if (SameMechGroup(grid, controlled)) return true;     // in a chair (controlling the construct)
+            if (SameMechGroup(grid, terminalGrid)) return true;   // its terminal is open
+            if (!relayOnline) return false;                       // antenna path needs your own relay online
             foreach (var b in slims)
             {
                 var ant = b.FatBlock as IngameAntenna;
-                if (ant == null || !ant.Enabled || !ant.EnableBroadcasting) continue;
+                if (!IsLiveBroadcastAntenna(ant)) continue;
                 double r = ant.Radius;
-                if (Vector3D.DistanceSquared(playerPos, grid.GetPosition()) <= r * r) return true;
+                // measure to the antenna block, not the grid pivot (can be tens of metres off on a large grid)
+                if (Vector3D.DistanceSquared(playerPos, ant.GetPosition()) <= r * r) return true;
             }
+            return false;
+        }
+
+        // A live relay = on, broadcasting, functional, and powered (the first two can be true on a dead antenna).
+        private static bool IsLiveBroadcastAntenna(IngameAntenna ant)
+            => ant != null && ant.Enabled && ant.EnableBroadcasting && ant.IsFunctional && ant.IsWorking;
+
+        // Your own relay must be online too: suit antenna broadcasting, or (when piloting) a live antenna on the
+        // ship you control. EnabledBroadcasting is on Sandbox.Game.Entities.IMyControllableEntity.
+        private static readonly List<IMySlimBlock> _relayBlocks = new List<IMySlimBlock>();
+        private static bool LocalRelayOnline(IMySession session, IMyCubeGrid controlled)
+        {
+            // prefer the character; fall back to the controlled entity when Character is briefly null (respawn)
+            var ctl = (session.Player?.Character as Sandbox.Game.Entities.IMyControllableEntity)
+                      ?? (session.Player?.Controller?.ControlledEntity?.Entity as Sandbox.Game.Entities.IMyControllableEntity);
+            if (ctl != null && ctl.EnabledBroadcasting) return true;                          // suit antenna on
+            if (controlled != null && GridHasLiveBroadcastAntenna(controlled)) return true;   // piloted ship's antenna
+            return false;
+        }
+
+        private static bool GridHasLiveBroadcastAntenna(IMyCubeGrid grid)
+        {
+            _relayBlocks.Clear();
+            grid.GetBlocks(_relayBlocks);
+            foreach (var b in _relayBlocks)
+                if (IsLiveBroadcastAntenna(b.FatBlock as IngameAntenna)) return true;
             return false;
         }
 

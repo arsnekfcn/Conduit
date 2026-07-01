@@ -16,6 +16,6 @@ namespace Conduit
         public static readonly Vector4 Warn       = new Vector4(0.95f, 0.32f, 0.22f, 1f);  // alert red
         public static readonly Vector4 Ok         = new Vector4(0.55f, 0.95f, 0.55f, 1f);  // green
         public static readonly Vector4 Muted      = new Vector4(0.62f, 0.62f, 0.66f, 1f);
-        public static readonly Vector4 Bg         = new Vector4(0.035f, 0.04f, 0.05f, 0.93f);
+        public static readonly Vector4 Bg         = new Vector4(0.035f, 0.04f, 0.05f, 1f);   // fully opaque
     }
 }

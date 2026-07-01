@@ -32,8 +32,7 @@ namespace Conduit
         public void Init(object gameInstance)
         {
             Log("Init: loading");
-            // Newtonsoft.Json ships beside the plugin (separate file) and is a NuGet dep under the from-source
-            // build, so the CLR resolves it normally
+            // Newtonsoft.Json: sibling DLL for a Local install (deploy.sh copies it), else Pulsar's bundled copy.
             try { ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12; } catch { /* best-effort TLS bump; if the runtime rejects the OR, its default protocol still negotiates HTTPS */ }
             try
             {
@@ -140,6 +139,9 @@ namespace Conduit
         {
             try { MyGuiSandbox.AddScreen(new ConfigScreen(_cfg)); } catch (Exception ex) { Log("menu open failed: " + ex.Message); }
         }
+
+        // Pulsar calls this (by reflection) for the plugin's Settings button and the Ctrl+Shift+/ config list.
+        public void OpenConfigDialog() => OpenMenu();
 
         public void Dispose()
         {

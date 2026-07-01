@@ -10,7 +10,7 @@ Custom Data begins with the marker **`[CDT:<tag>]`**, wraps each packet in a sma
 it. **It never interprets the payload, and never senses anything itself.**
 
 The access guardrail is mechanical: the plugin reads Custom Data **only on grids you can vanilla-access right now**.
-Your own grids, or shared faction grids that you're controlling, standing at on foot, or within a broadcasting antenna's range.
+Your own or shared faction grids that you're controlling (in a seat), that have their terminal open, or that are within a broadcasting antenna's range (with your own antenna online). Standing next to a grid doesn't count.
 So it can only ever forward data a vanilla script, mod, or player could have written on a grid whose terminal
 you could open yourself.
 Data contract: **[SCHEMA.md](SCHEMA.md)**. Trust model: **[SECURITY.md](SECURITY.md)**.
@@ -75,11 +75,10 @@ Config also lives at `%APPDATA%\Conduit\config.json` if you prefer editing by ha
 
 ## Build locally
 Requires a Space Engineers install. Point `SeBin64` at your `...\SpaceEngineers\Bin64` (a local
-`Directory.Build.props` or an env var), then `dotnet build -c Release` (or run `deploy.sh`). Newtonsoft.Json is
-a NuGet `<PackageReference>`. The MSBuild / `deploy.sh` build defines `LOCAL_BUILD`, which embeds it into the
-single output DLL (loaded at runtime via an `AssemblyResolve` shim) so a manual Local install is self-contained;
-Pulsar's from-source build (PluginHub) ignores that and restores Newtonsoft from NuGet normally. See
-`docs/plugins/BUILDING.md`.
+`Directory.Build.props` or an env var), then `dotnet build -c Release` (or run `deploy.sh`). Newtonsoft.Json is a
+NuGet `<PackageReference>`; `deploy.sh` copies `Newtonsoft.Json.dll` as a separate file next to `Conduit.dll` so
+a manual Local install has its dependency present (no embedding). Pulsar's from-source build (PluginHub) provides
+Newtonsoft.Json from its own bundled libraries, so the plugin manifest deliberately does not list it.
 
 ## The backend is yours
 Conduit ships **no backend**. It defines a data contract ([SCHEMA.md](SCHEMA.md)); you build, or
