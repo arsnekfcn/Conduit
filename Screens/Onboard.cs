@@ -21,12 +21,22 @@ namespace Conduit
     {
         private static volatile TcpListener _current;   // the active attempt; a repeat press supersedes it
 
-        public static void Begin(ConduitConfig cfg)
+        // Steam onboarding: opens the operator's Steam endpoint in the Steam OVERLAY browser (already signed
+        // into the user's Steam account).
+        public static void Begin(ConduitConfig cfg) => Start(cfg, cfg.OnboardUrl, useOverlay: true, provider: "Steam");
+
+        // Generic web onboarding: opens the operator's arbitrary onboarding URL in the SYSTEM browser, where the
+        // user is already signed into whatever the backend authenticates with (Discord, GitHub, SSO, …). Same
+        // loopback+claim flow as Steam; Conduit stays backend-agnostic and never sees a client id/secret — the
+        // operator's backend holds those and does the OAuth code-exchange server-side.
+        public static void BeginWeb(ConduitConfig cfg) => Start(cfg, cfg.WebOnboardUrl, useOverlay: false, provider: "Web");
+
+        private static void Start(ConduitConfig cfg, string onboardUrl, bool useOverlay, string provider)
         {
-            if (string.IsNullOrWhiteSpace(cfg.OnboardUrl))
-            { Notify.Hud("Conduit: set the Onboard URL first (auth mode = bearer), then Link"); return; }
-            if (!cfg.OnboardUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && !cfg.AllowInsecureEndpoint)
-            { Notify.Hud("Conduit: Onboard URL must be https (or set AllowInsecureEndpoint)"); return; }
+            if (string.IsNullOrWhiteSpace(onboardUrl))
+            { Notify.Hud($"Conduit: set the {provider} onboarding URL first (auth mode = bearer), then link"); return; }
+            if (!onboardUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && !cfg.AllowInsecureEndpoint)
+            { Notify.Hud("Conduit: onboarding URL must be https (or set AllowInsecureEndpoint)"); return; }
 
             TcpListener listener;
             string state, url;
@@ -37,20 +47,20 @@ namespace Conduit
                 listener = new TcpListener(IPAddress.Loopback, 0);   // 127.0.0.1, OS-assigned ephemeral port
                 listener.Start();
                 port = ((IPEndPoint)listener.LocalEndpoint).Port;
-                string sep = cfg.OnboardUrl.Contains("?") ? "&" : "?";
-                url = $"{cfg.OnboardUrl}{sep}state={state}&cb={port}";
+                string sep = onboardUrl.Contains("?") ? "&" : "?";
+                url = $"{onboardUrl}{sep}state={state}&cb={port}";
             }
             catch (Exception ex) { Plugin.Log("onboard: failed to start loopback listener: " + ex.Message); return; }
 
             if (_current != null) Plugin.Log("onboard: restarting (previous attempt superseded)");
             _current = listener;   // any in-flight Wait() will see it's no longer current and exit
-            Plugin.Log($"onboard: opening Steam sign-in (loopback 127.0.0.1:{port})");
-            OpenUrl(url);   // MAIN THREAD — overlay/GUI is not thread-safe
-            new Thread(() => Wait(listener, state, cfg)) { IsBackground = true, Name = "qm-onboard" }.Start();
+            Plugin.Log($"onboard: opening {provider} sign-in (loopback 127.0.0.1:{port})");
+            OpenUrl(url, useOverlay);   // MAIN THREAD — overlay/GUI is not thread-safe
+            new Thread(() => Wait(listener, state, cfg, onboardUrl)) { IsBackground = true, Name = "qm-onboard" }.Start();
         }
 
         // Background: wait for the backend to redirect the token to our loopback.
-        private static void Wait(TcpListener listener, string state, ConduitConfig cfg)
+        private static void Wait(TcpListener listener, string state, ConduitConfig cfg, string onboardUrl)
         {
             try
             {
@@ -71,7 +81,7 @@ namespace Conduit
                         Respond(stream, ok);
                         if (ok)
                         {
-                            string token = ClaimToken(cfg, code);   // exchange the one-time code -> token over HTTPS
+                            string token = ClaimToken(code, onboardUrl);   // exchange the one-time code -> token over HTTPS
                             if (!string.IsNullOrEmpty(token))
                             {
                                 cfg.TokenPlain = token;   // Save() encrypts it to disk (DPAPI)
@@ -93,11 +103,11 @@ namespace Conduit
         }
 
         // Exchange the one-time onboarding code for the actual token via a direct HTTPS POST to the backend.
-        private static string ClaimToken(ConduitConfig cfg, string code)
+        private static string ClaimToken(string code, string onboardUrl)
         {
             try
             {
-                string claimUrl = cfg.OnboardUrl.Replace("/auth/steam/login", "/auth/steam/claim");
+                string claimUrl = ClaimUrlFrom(onboardUrl);
                 claimUrl += (claimUrl.Contains("?") ? "&" : "?") + "code=" + Uri.EscapeDataString(code);
                 using (var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) })
                 using (var req = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, claimUrl))
@@ -109,6 +119,15 @@ namespace Conduit
                 }
             }
             catch (Exception ex) { Plugin.Log("onboard: claim failed: " + ex.Message); return null; }
+        }
+
+        // Derive the token-claim endpoint from the login URL by convention: the trailing ".../login" path
+        // segment becomes ".../claim" (/auth/steam/login -> /auth/steam/claim, /auth/web/login -> /auth/web/claim,
+        // etc). LastIndexOf so a host like login.example.com isn't mangled; falls back to the URL unchanged.
+        private static string ClaimUrlFrom(string onboardUrl)
+        {
+            int i = (onboardUrl ?? "").LastIndexOf("/login", StringComparison.OrdinalIgnoreCase);
+            return i >= 0 ? onboardUrl.Substring(0, i) + "/claim" + onboardUrl.Substring(i + "/login".Length) : onboardUrl;
         }
 
         private static string NewState()
@@ -161,43 +180,48 @@ namespace Conduit
             s.Flush();
         }
 
-        // Open the URL in the Steam OVERLAY browser (renders over the game, already signed into the user's
-        // Steam account) via Steamworks SteamFriends.ActivateGameOverlayToWebPage. Falls back to the system
-        // browser only if the overlay is unavailable/disabled.
-        private static void OpenUrl(string url)
+        // Open the sign-in URL. Steam onboarding uses the Steam OVERLAY browser (renders over the game, already
+        // signed into the user's Steam account) via Steamworks SteamFriends.ActivateGameOverlayToWebPage.
+        // Web onboarding (useOverlay=false) goes straight to the SYSTEM browser, where the user is already
+        // signed into whatever their backend authenticates with. The overlay path falls back to the system
+        // browser if it's unavailable/disabled.
+        private static void OpenUrl(string url, bool useOverlay)
         {
-            try
+            if (useOverlay)
             {
-                var friends = FindType("Steamworks.SteamFriends");
-                var utils = FindType("Steamworks.SteamUtils");
-                if (friends != null)
+                try
                 {
-                    bool overlayOn = true;
-                    var isOn = utils?.GetMethod("IsOverlayEnabled", BindingFlags.Public | BindingFlags.Static);
-                    try { if (isOn != null) overlayOn = (bool)isOn.Invoke(null, null); } catch { /* IsOverlayEnabled probe failed; leave overlayOn=true, try the overlay, and fall back to the browser below if it throws */ }
-
-                    if (overlayOn)
+                    var friends = FindType("Steamworks.SteamFriends");
+                    var utils = FindType("Steamworks.SteamUtils");
+                    if (friends != null)
                     {
-                        var m = friends.GetMethod("ActivateGameOverlayToWebPage", BindingFlags.Public | BindingFlags.Static);
-                        if (m != null)
+                        bool overlayOn = true;
+                        var isOn = utils?.GetMethod("IsOverlayEnabled", BindingFlags.Public | BindingFlags.Static);
+                        try { if (isOn != null) overlayOn = (bool)isOn.Invoke(null, null); } catch { /* IsOverlayEnabled probe failed; leave overlayOn=true, try the overlay, and fall back to the browser below if it throws */ }
+
+                        if (overlayOn)
                         {
-                            var ps = m.GetParameters();
-                            object[] args = ps.Length >= 2
-                                ? new object[] { url, Enum.ToObject(ps[1].ParameterType, 0) }   // mode = Default
-                                : new object[] { url };
-                            m.Invoke(null, args);
-                            Plugin.Log("onboard: opened in the Steam overlay browser");
-                            return;
+                            var m = friends.GetMethod("ActivateGameOverlayToWebPage", BindingFlags.Public | BindingFlags.Static);
+                            if (m != null)
+                            {
+                                var ps = m.GetParameters();
+                                object[] args = ps.Length >= 2
+                                    ? new object[] { url, Enum.ToObject(ps[1].ParameterType, 0) }   // mode = Default
+                                    : new object[] { url };
+                                m.Invoke(null, args);
+                                Plugin.Log("onboard: opened in the Steam overlay browser");
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            Plugin.Log("onboard: Steam overlay is DISABLED — enable it (Steam > Settings > In Game) " +
+                                       "for the in-game flow; opening the system browser instead");
                         }
                     }
-                    else
-                    {
-                        Plugin.Log("onboard: Steam overlay is DISABLED — enable it (Steam > Settings > In Game) " +
-                                   "for the in-game flow; opening the system browser instead");
-                    }
                 }
+                catch (Exception ex) { Plugin.Log("onboard: overlay open failed, falling back: " + ex.Message); }
             }
-            catch (Exception ex) { Plugin.Log("onboard: overlay open failed, falling back: " + ex.Message); }
 
             try
             {

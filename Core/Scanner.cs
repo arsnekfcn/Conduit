@@ -51,6 +51,10 @@ namespace Conduit
             MyAPIGateway.Entities.GetEntities(entities, e => e is IMyCubeGrid);
             var slims = new List<IMySlimBlock>();
 
+            // Order-independent change fingerprint (grid enumeration order isn't stable): additively combine a
+            // per-block hash of (entityId, CustomData) so reordering never reads as a change, but any edit does.
+            ulong fp = 0;
+
             foreach (var e in entities)
             {
                 var grid = e as IMyCubeGrid;
@@ -76,11 +80,22 @@ namespace Conduit
                     var cd = t.CustomData;
                     if (string.IsNullOrEmpty(cd) || !cd.StartsWith(Marker, StringComparison.Ordinal)) continue;
                     var pkt = ParsePacket(cd, grid, t, facTag);
-                    if (pkt != null) env.Packets.Add(pkt);
+                    if (pkt != null) { env.Packets.Add(pkt); fp += Fnv1a(grid.EntityId, cd); }
                 }
             }
 
+            env.Fingerprint = fp.ToString("x16");
             return env;
+        }
+
+        // FNV-1a 64 over the block's entityId + raw Custom Data. Cheap; used only to detect change.
+        private static ulong Fnv1a(long entityId, string cd)
+        {
+            ulong h = 14695981039346656037UL;
+            ulong id = (ulong)entityId;
+            for (int i = 0; i < 8; i++) { h ^= (id >> (i * 8)) & 0xFF; h *= 1099511628211UL; }
+            for (int i = 0; i < cd.Length; i++) { h ^= cd[i]; h *= 1099511628211UL; }
+            return h;
         }
 
         // "[CDT:<tag>]\n<payload>" -> Packet. Payload is parsed JSON when valid, else the raw string.
