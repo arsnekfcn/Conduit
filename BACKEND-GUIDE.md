@@ -104,7 +104,8 @@ No `Authorization` header. Fine for a private/firewalled box. Your endpoint acce
 ### `bearer`
 Plugin sends `Authorization: Bearer <token>`. You decide how tokens are minted and checked. A static
 shared secret, a row in a table, a JWT you validate, whatever. The token is entered in-menu (or set via
-[Steam onboarding](#4-steam-onboarding-optional)) and stored encrypted at rest (DPAPI).
+[Steam](#4-steam-onboarding-optional) / [Web login](#5-web-login-onboarding-optional) onboarding) and
+stored encrypted at rest (DPAPI).
 
 ### `oauth2_cc` (OAuth2 client-credentials)
 For backends fronted by an IdP / API gateway. Before posting, the plugin fetches a token from your
@@ -156,8 +157,9 @@ The flow (the plugin drives the loopback half; you implement two endpoints):
    `302 → http://127.0.0.1:<cb>/?code=<one-time-code>&state=<nonce>`
    The plugin ignores any hit whose `state` doesn't match the nonce it generated.
 3. Plugin exchanges that code for the real token via a direct HTTPS POST to a sibling endpoint. It
-   takes your `OnboardUrl` and swaps `/auth/steam/login` → `/auth/steam/claim`:
-   `POST <OnboardUrl with /auth/steam/login → /auth/steam/claim>?code=<one-time-code>`
+   takes your `OnboardUrl` and swaps the trailing `/login` path segment → `/claim`
+   (so `/auth/steam/login` → `/auth/steam/claim`):
+   `POST <OnboardUrl with trailing /login → /claim>?code=<one-time-code>`
 4. **Your `/auth/steam/claim`** validates the (single-use, short-TTL) code and returns:
    `{ "token": "<bearer token>" }`
 
@@ -165,6 +167,46 @@ The plugin stores that token (DPAPI), flips Auth mode to `bearer`, and uses it o
 token never appears in a browser URL or history — only the opaque code does. Bind the minted token to
 the SteamID you verified, give it the scope you want (e.g. ingest-only), and expire it on whatever
 schedule you like (the plugin surfaces a rejected token as "re-auth").
+
+---
+
+## 5. Web login onboarding (optional)
+
+The same loopback+claim flow as [Steam onboarding](#4-steam-onboarding-optional), but backend-agnostic.
+Instead of the Steam overlay, the player clicks **Web login** and the plugin opens your onboarding URL in
+their **system browser** — where they're already signed into whatever *you* authenticate with (Discord,
+GitHub, an SSO/IdP, a plain login page). Conduit never learns or cares which; it only knows the URL.
+
+**The plugin holds no client id and no secret.** Those stay on your backend, which runs the OAuth
+authorization-code exchange server-side and mints its own token. The plugin only opens a URL and receives
+the resulting token back over the loopback. That is exactly what keeps Conduit provider-agnostic — the same
+plugin works whether you authenticate people via Steam, Discord, or a corporate SSO.
+
+Configured via the **Web login URL** field (bearer mode). The flow (you implement two endpoints):
+
+1. Plugin opens, in the system browser:
+   `GET <WebOnboardUrl>?state=<nonce>&cb=<loopbackPort>`
+   where `WebOnboardUrl` is your **Web login URL** (e.g. `https://host/auth/web/login`).
+2. **Your `/auth/web/login`** authenticates the user however you like (e.g. redirect to Discord's OAuth,
+   check a role with *your* client id + secret), then redirects the browser back to the plugin's loopback,
+   echoing the nonce and handing over a **single-use code** (not the token):
+   `302 → http://127.0.0.1:<cb>/?code=<one-time-code>&state=<nonce>`
+   The plugin ignores any hit whose `state` doesn't match the nonce it generated.
+3. Plugin exchanges the code via a direct HTTPS POST to the sibling **claim** endpoint (trailing `/login`
+   → `/claim`, the same convention as Steam):
+   `POST <WebOnboardUrl with trailing /login → /claim>?code=<one-time-code>`
+4. **Your `/auth/web/claim`** validates the (single-use, short-TTL) code and returns:
+   `{ "token": "<bearer token>" }`
+
+The plugin stores that token (DPAPI), flips Auth mode to `bearer`, and uses it on the next sync. The token
+never appears in a browser URL or history — only the opaque code does. This matters more here than for
+Steam: the system browser keeps persistent history, so **never** redirect the token itself to the loopback,
+only the code. Bind the minted token to whatever identity you authenticated and scope/expire it as you like.
+
+> **Example — offering "sign in with Discord":** point **Web login URL** at `https://host/auth/discord/login`.
+> That endpoint kicks off Discord OAuth with *your* app's client id + secret, verifies the user holds your
+> guild role, mints a bearer token, and 302s the one-time code back to the loopback. Swap Discord for any
+> provider without touching the plugin — "Discord" is just one shape of a generic web login.
 
 ---
 

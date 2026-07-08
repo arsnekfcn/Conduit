@@ -21,6 +21,8 @@ namespace Conduit
         private ConduitConfig _cfg;
         private int _frame;
         private int _intervalFrames = 240;          // recomputed from config once loaded (~60 fps)
+        private int _liveFrames = 6;                // live-push scan cadence (frames)
+        private string _lastFingerprint;            // last-pushed payload fingerprint (live push)
         private int _hkCooldown;
         private MyKeys _hkKey = MyKeys.End;
         private int _linkCooldown;
@@ -41,6 +43,7 @@ namespace Conduit
                 if (_cfg.LoadError != null) Log("config load error (using defaults): " + _cfg.LoadError);
                 _commands = new Commands(_cfg);
                 _intervalFrames = Math.Max(30, (int)(_cfg.ScanIntervalSeconds * 60.0));
+                _liveFrames = Math.Max(1, _cfg.LiveScanFrames);
                 if (!Enum.TryParse(_cfg.HotkeyKey, true, out _hkKey)) _hkKey = MyKeys.End;
                 if (!Enum.TryParse(_cfg.LinkHotkeyKey, true, out _linkKey)) _linkKey = MyKeys.Home;
                 string online = (_cfg.Online && !string.IsNullOrWhiteSpace(_cfg.EndpointUrl))
@@ -60,9 +63,32 @@ namespace Conduit
             }
             try { TryHotkey(); } catch { /* per-tick input poll: a transient input/GUI-state hiccup must not throw out of Update and stall the sim */ }
             try { TryLinkHotkey(); } catch { /* same: the link-hotkey poll must never throw into the sim loop */ }
-            if (++_frame < _intervalFrames) return;
-            _frame = 0;
-            try { ScanAndSend(false); } catch (Exception ex) { Log("scan failed: " + ex.Message); }
+            if (_cfg.LivePush)
+            {
+                if (++_frame < _liveFrames) return;
+                _frame = 0;
+                try { LiveTick(); } catch (Exception ex) { Log("live scan failed: " + ex.Message); }
+            }
+            else
+            {
+                if (++_frame < _intervalFrames) return;
+                _frame = 0;
+                try { ScanAndSend(false); } catch (Exception ex) { Log("scan failed: " + ex.Message); }
+            }
+        }
+
+        // Live push: scan on the fast cadence, POST only when the reachable payloads changed since the last
+        // push. Skips while a send is in flight (the change re-detects next tick), so a spammy PB naturally
+        // rate-limits to the round-trip time and the newest state always wins.
+        private void LiveTick()
+        {
+            if (_sending) return;
+            var env = Scanner.Scan(_cfg);
+            int count = env.Packets.Count;
+            if (count == 0) { _lastFingerprint = null; return; }   // nothing in reach; re-appearance re-pushes
+            if (env.Fingerprint == _lastFingerprint) return;       // unchanged
+            _lastFingerprint = env.Fingerprint;
+            Dispatch(env, count, false);
         }
 
         // Build the payload on the MAIN thread, then hand it off.
@@ -73,6 +99,12 @@ namespace Conduit
             var env = Scanner.Scan(_cfg);
             int count = env.Packets.Count;
             if (count == 0) { if (manual) Notify.Hud("Conduit: no [CDT:...] packets in reach to sync"); return; }
+            Dispatch(env, count, manual);
+        }
+
+        // Serialize + POST on a bg thread. Sets _sending for the duration (one in-flight send at a time).
+        private void Dispatch(Envelope env, int count, bool manual)
+        {
             _sending = true;
             ThreadPool.QueueUserWorkItem(_ =>
             {
@@ -95,7 +127,13 @@ namespace Conduit
 
         // Called from the config menu (main thread).
         public void ManualSync() { try { ScanAndSend(true); } catch (Exception ex) { Log("manual sync failed: " + ex.Message); } }
-        public void OnConfigChanged() { _intervalFrames = Math.Max(30, (int)(_cfg.ScanIntervalSeconds * 60.0)); }
+        public void OnConfigChanged()
+        {
+            _intervalFrames = Math.Max(30, (int)(_cfg.ScanIntervalSeconds * 60.0));
+            _liveFrames = Math.Max(1, _cfg.LiveScanFrames);
+            _lastFingerprint = null;   // re-push once under the new settings
+            _frame = 0;
+        }
 
         // Configurable hotkey (default Ctrl+Shift+End): force an immediate scan. The periodic scan runs
         // regardless, so this is just a force-now aid. Exact modifier match so it won't fire on other combos.

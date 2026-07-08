@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace Conduit
 {
@@ -13,6 +14,10 @@ namespace Conduit
         public Observer Observer;
         public World World;
         public List<Packet> Packets = new List<Packet>();
+
+        // Order-independent hash of the reachable [CDT:] payloads, for live-push change detection.
+        // Local only — never sent to the backend.
+        [JsonIgnore] public string Fingerprint;
     }
 
     public class Observer

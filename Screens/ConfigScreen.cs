@@ -13,8 +13,8 @@ namespace Conduit
     public class ConfigScreen : MyGuiScreenDebugBase
     {
         private readonly ConduitConfig _cfg;
-        private MyGuiControlTextbox _url, _serverId, _freq, _token, _onboardUrl, _tokenUrl, _clientId, _clientSecret, _scope;
-        private MyGuiControlCheckbox _online, _offline, _chat;
+        private MyGuiControlTextbox _url, _serverId, _freq, _token, _onboardUrl, _webOnboardUrl, _tokenUrl, _clientId, _clientSecret, _scope;
+        private MyGuiControlCheckbox _online, _offline, _chat, _live;
         private string _authMode;
         private static readonly string[] AuthModes = { "none", "bearer", "oauth2_cc" };
 
@@ -35,7 +35,7 @@ namespace Conduit
         public override void RecreateControls(bool constructor)
         {
             base.RecreateControls(constructor);
-            _token = _onboardUrl = _tokenUrl = _clientId = _clientSecret = _scope = null;   // mode-dependent; reset stale refs
+            _token = _onboardUrl = _webOnboardUrl = _tokenUrl = _clientId = _clientSecret = _scope = null;   // mode-dependent; reset stale refs
 
             Center(Brand.Faction, -0.40f, Brand.Accent, 0.9f);
             Center(Brand.Product, -0.373f, Brand.AccentDim, 0.72f);
@@ -44,9 +44,14 @@ namespace Conduit
             // ---- status + onboarding ----
             Vector4 sc; string st = StatusText(out sc);
             Center(st, -0.306f, sc, 0.8f);
-            MakeBtn("Link account (Steam)", new Vector2(-0.105f, -0.26f), new Vector2(0.30f, 0.042f),
+            // Two parallel sign-in options + a compact wipe. Steam opens the operator's endpoint in the Steam
+            // overlay; Web opens their arbitrary URL in the system browser. Both feed the same loopback+claim
+            // flow (the manual token/oauth fields below are the fallback for anything else).
+            MakeBtn("Steam login", new Vector2(-0.16f, -0.26f), new Vector2(0.19f, 0.042f),
                 () => { CaptureEdits(); CloseScreen(false); Onboard.Begin(_cfg); });
-            MakeBtn("Wipe auth", new Vector2(0.145f, -0.26f), new Vector2(0.16f, 0.042f), WipeAuth);
+            MakeBtn("Web login", new Vector2(0.045f, -0.26f), new Vector2(0.19f, 0.042f),
+                () => { CaptureEdits(); CloseScreen(false); Onboard.BeginWeb(_cfg); });
+            MakeBtn("Wipe", new Vector2(0.205f, -0.26f), new Vector2(0.11f, 0.042f), WipeAuth);
 
             // ---- endpoint + server id ----
             AddLabel("Destination URL:", -0.205f);
@@ -65,6 +70,8 @@ namespace Conduit
                 _token = AddBox(-0.07f, "", 0.31f);
                 AddLabel("Onboard URL (Steam):", -0.025f);
                 _onboardUrl = AddBox(-0.025f, _cfg.OnboardUrl, 0.31f);
+                AddLabel("Web login URL:", 0.02f);
+                _webOnboardUrl = AddBox(0.02f, _cfg.WebOnboardUrl, 0.31f);
             }
             else if (_authMode == "oauth2_cc")
             {
@@ -75,19 +82,25 @@ namespace Conduit
             }
 
             // ---- sinks + rate ----
-            _online = AddCheck(0.11f, _cfg.Online, "Send online (POST to the URL above)");
-            _offline = AddCheck(0.148f, _cfg.Offline, "Also write an offline batch file");
-            AddLabel("Sync every (seconds):", 0.186f);
-            _freq = AddBox(0.186f, ((int)Math.Round(_cfg.ScanIntervalSeconds)).ToString(), 0.1f);
-            _chat = AddCheck(0.24f, _cfg.ChatOnSync, "Announce each automatic sync in chat");
+            // The "Sync every" control is a TEXTBOX and renders at ~full row height (like the URL/Server-ID
+            // boxes, which sit ~0.045 apart). Wedged between the Live-push and offline checkboxes it needs that
+            // full ~0.045 clearance on BOTH sides, not the ~0.038 a checkbox row needs — otherwise its top/bottom
+            // edges slide under the neighbouring checkboxes. So the sync row gets wide gaps and the rows below it
+            // are pushed down (the footer buttons follow), rather than squeezing it into a checkbox-sized slot.
+            _online = AddCheck(0.104f, _cfg.Online, "Send online (POST to the URL above)");
+            _offline = AddCheck(0.144f, _cfg.Offline, "Also write an offline batch file");
+            AddLabel("Sync every (seconds):", 0.190f);
+            _freq = AddBox(0.190f, ((int)Math.Round(_cfg.ScanIntervalSeconds)).ToString(), 0.1f);
+            _live = AddCheck(0.237f, _cfg.LivePush, "Live push (POST on Custom Data change)");
+            _chat = AddCheck(0.275f, _cfg.ChatOnSync, "Announce each automatic sync in chat");
 
-            // ---- actions ----
-            MakeBtn("Sync now", new Vector2(-0.12f, 0.296f), new Vector2(0.2f, 0.044f),
+            // ---- actions ---- (pushed down so the taller sync row + checkbox cluster above clear them)
+            MakeBtn("Sync now", new Vector2(-0.12f, 0.320f), new Vector2(0.2f, 0.044f),
                 () => { Plugin.Instance?.ManualSync(); });
-            MakeBtn("Save", new Vector2(0.12f, 0.296f), new Vector2(0.2f, 0.044f), OnSave);
-            MakeBtn("Close", new Vector2(0f, 0.348f), new Vector2(0.42f, 0.04f), () => CloseScreen(false));
+            MakeBtn("Save", new Vector2(0.12f, 0.320f), new Vector2(0.2f, 0.044f), OnSave);
+            MakeBtn("Close", new Vector2(0f, 0.370f), new Vector2(0.42f, 0.04f), () => CloseScreen(false));
 
-            Center(Brand.Classified, 0.39f, Brand.AccentDim, 0.55f);
+            Center(Brand.Classified, 0.404f, Brand.AccentDim, 0.55f);
         }
 
         private string StatusText(out Vector4 color)
@@ -118,9 +131,11 @@ namespace Conduit
             if (_online != null) _cfg.Online = _online.IsChecked;
             if (_offline != null) _cfg.Offline = _offline.IsChecked;
             if (_freq != null) { double s; if (double.TryParse((_freq.Text ?? "").Trim(), out s)) _cfg.ScanIntervalSeconds = Math.Max(1.0, s); }
+            if (_live != null) _cfg.LivePush = _live.IsChecked;
             if (_chat != null) _cfg.ChatOnSync = _chat.IsChecked;
             if (_token != null) { var t = (_token.Text ?? "").Trim(); if (t.Length > 0) _cfg.TokenPlain = t; }   // blank = keep
             if (_onboardUrl != null) _cfg.OnboardUrl = (_onboardUrl.Text ?? "").Trim();
+            if (_webOnboardUrl != null) _cfg.WebOnboardUrl = (_webOnboardUrl.Text ?? "").Trim();
             if (_tokenUrl != null) _cfg.TokenUrl = (_tokenUrl.Text ?? "").Trim();
             if (_clientId != null) _cfg.ClientId = (_clientId.Text ?? "").Trim();
             if (_clientSecret != null) { var s = (_clientSecret.Text ?? "").Trim(); if (s.Length > 0) _cfg.ClientSecretPlain = s; }   // blank = keep

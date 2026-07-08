@@ -56,8 +56,13 @@ source.
 - Optional **chat message on every automatic sync**.
 
 ### Account linking (optional, for token-authenticated backends)
-- **Sign in through Steam** from inside the game (Steam overlay). The backend you point at can issue a
-  per-member token **bound to your verified SteamID** and deliver it straight into the plugin. The token is stored **DPAPI-encrypted** (per Windows user), and the secret is a one-time code exchange. See [SECURITY.md](SECURITY.md).
+- **Steam login** — sign in through the Steam overlay from inside the game. The backend you point at can
+  issue a per-member token **bound to your verified SteamID** and deliver it straight into the plugin.
+- **Web login** — the backend-agnostic sibling: opens *your* onboarding URL in the system browser, where you
+  authenticate the player however you like (Discord, GitHub, SSO, …) and mint a token server-side. The plugin
+  holds no client id or secret — it just receives the token. See the [backend guide](BACKEND-GUIDE.md#5-web-login-onboarding-optional).
+- Either way the token is stored **DPAPI-encrypted** (per Windows user), delivered as a one-time code
+  exchange (never in a browser URL). See [SECURITY.md](SECURITY.md).
 
 ---
 
@@ -69,7 +74,7 @@ prefer Windows for token-authenticated backends. Offline / no-auth use has no su
 1. In Pulsar, add **Conduit** from the plugin list and enable it; restart SE.
 2. Open the config menu (**Ctrl+Shift+Home**), set your **Destination URL** (or leave online off and use
    the offline file), and **Save**.
-3. If your backend uses token auth, click **Link account (Steam)**.
+3. If your backend uses token auth, click **Steam login** (or **Web login** for a non-Steam backend).
 
 Config also lives at `%APPDATA%\Conduit\config.json` if you prefer editing by hand.
 

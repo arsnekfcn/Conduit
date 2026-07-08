@@ -49,6 +49,12 @@ namespace Conduit
         // Seconds between passive scans.
         public double ScanIntervalSeconds = 60.0;
 
+        // Live push (experiment): instead of the fixed interval, scan at LiveScanFrames cadence and POST only
+        // when the reachable [CDT:] payloads actually change (fingerprint compare). Same access gate every scan.
+        // Lets a PB write state rapidly and have each distinct state pushed within a few frames.
+        public bool LivePush = false;
+        public int LiveScanFrames = 6;      // ~10 Hz at 60 fps; min 1
+
         // Manual-scan hotkey (the periodic scan runs regardless; this is just a force-now key).
         // Default Ctrl+Shift+End.
         public string HotkeyKey = "End";
@@ -62,6 +68,10 @@ namespace Conduit
         public bool LinkHotkeyShift = true;
         // Operator onboarding URL, e.g. https://host/conduit/auth/steam/login
         public string OnboardUrl = "";
+        // Generic web-login onboarding URL — opened in the SYSTEM browser (not the Steam overlay), so the
+        // operator can authenticate you however they like (Discord/GitHub/SSO). Same loopback+claim flow as
+        // Steam; the trailing ".../login" becomes ".../claim" for the code exchange. e.g. https://host/auth/web/login
+        public string WebOnboardUrl = "";
 
         // "ownOnly" = grids you personally own; "faction" = also same-faction grids. Blocks are share-gated regardless, you can only read what you would have access to.
         // Evaluate requires the grid to be own/faction by BigOwners, so a fully unowned grid is excluded entirely regardless of setting.
