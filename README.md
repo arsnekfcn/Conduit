@@ -29,7 +29,8 @@ Skinned as a **Formidan Mandate** proprietary corp module. The skin is cosmetic;
   plugin forwards the payload **verbatim** under its tag. It does not parse or understand it. What a packet
   *means* is up to whatever wrote it and whatever consumes it.
 - **A small envelope** adds who/where collected (`observer`, `world`) and the source grid / block / faction,
-  then ships the batch. Consumers dedup by the grid's replicated **EntityId**. See [SCHEMA.md](SCHEMA.md).
+  then ships the batch. Plugin dedups by the grid's replicated **EntityId**. Consumers will want to dedup by a less
+  ephemeral value if used in a multiplayer setting, set by script. See [SCHEMA.md](SCHEMA.md).
 
 ### Feeding it: write a `[CDT:<tag>]` packet
 Anything that can write block Custom Data can feed Conduit. A Programmable Block script, a server mod, or
