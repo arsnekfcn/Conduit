@@ -49,22 +49,32 @@ your own scripts can define any format under any tag. The bundled
 [Conduit Example](https://github.com/arsnekfcn/conduit-example) writes a simpler `conduit.example.v1` packet.
 
 ```json
-{ "grids": [ {
-  "entityId": 1073…, "name": "Equinox", "gridSize": "Large", "isStatic": false,
-  "inventory":  [ { "category": "Ingot", "subtype": "Iron", "amount": 18200 },
-                  { "category": "Ammo",  "subtype": "NATO_25x184mm", "amount": 1200 } ],
-  "production": { "refineries": 4, "refineriesActive": 4, "assemblers": 8, "assemblersActive": 3 },
-  "power":      { "batteryStoredMWh": 12.5, "batteryMaxMWh": 20.0, "reactors": 2 },
-  "gas":        { "hydrogenRatio": 0.80, "oxygenRatio": 0.55 },
-  "weapons":    { "turrets": 4, "fixedGuns": 2, "launchers": 1 }
-} ] }
+{
+  "entityId": 1234567890123456789,   // current engine id, reference/telemetry ONLY, rotates often in MP
+  "uid": "1234567890123456789",      // stable, producer-assigned grid handle = the dedup identity
+  "name": "Wanderer",
+  "gridSize": "Large",               // "Large" | "Small"
+  "isStatic": false,
+  "blockCount": 100,
+  "position": [12345.6, -789.0, 42.0],
+  "inventory": [
+    { "category": "Ore",  "subtype": "Cobalt",     "amount": 1250000.0 },
+    { "category": "Ammo", "subtype": "NATO_25x184mm", "amount": 480.0 }
+  ],
+  "production": { "assemblers": 6, "assemblersActive": 2, "refineries": 4, "refineriesActive": 3 },
+  "power":      { "batteryStoredMWh": 134.5, "batteryMaxMWh": 200.0, "reactors": 2 },
+  "gas":        { "hydrogenRatio": 0.82, "ox
+  "weapons":    { "turrets": 27, "fixedGuns": 2, "launchers": 12 }
+}
 ```
 
-A consumer that understands `qm.fleet.v1` keys grids by **`(world.serverId, entityId)`** (the cross-observer
-dedup key, newest `capturedAtUtc` wins, and it SHOULD also stamp its own receive time as the authoritative
-freshness signal, clamping implausibly-future client clocks). `amount` units: Ore/Ingot = kg; Component/Ammo =
-count. The reference backend maps this payload into inventory / production / telemetry / armament rows and
-attaches the source grid's faction.
+A consumer that understands qm.fleet.v1 keys grids by (world.serverId, uid) — a stable, producer-assigned grid handle. 
+Every observer of the same grid reports the same uid (so it is the cross-observer dedup key), and it also persists across0 
+the multiplayer operations that rotate the engine entityId: fixship copy/paste, admin grid restore, Nexus transfer, and others, 
+which makes entityId a poor identity. entityId is carried for reference but should NOT be used as the dedup key; when a producer 
+omits uid, fall back to str(entityId). Newest capturedAtUtc wins, and the consumer SHOULD also stamp its own receive time 
+as the authoritative freshness signal, clamping implausibly-future client clocks. amount units: Ore/Ingot = kg; Component/Ammo = count. 
+The reference backend maps this payload into inventory / production / telemetry / armament rows and attaches the source grid's faction.
 
 ## Forward-compatible
 - Consumers MUST ignore unknown fields and unknown tags.
