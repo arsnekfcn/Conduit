@@ -35,7 +35,11 @@ namespace Conduit
         {
             Log("Init: loading");
             // Newtonsoft.Json: sibling DLL for a Local install (deploy.sh copies it), else Pulsar's bundled copy.
+#if NETFRAMEWORK
+            // net48 only: modern .NET negotiates TLS 1.2+ by default and ServicePointManager is
+            // obsolete there (and a no-op for HttpClient).
             try { ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12; } catch { /* best-effort TLS bump; if the runtime rejects the OR, its default protocol still negotiates HTTPS */ }
+#endif
             try
             {
                 Instance = this;

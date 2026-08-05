@@ -67,9 +67,10 @@ source.
 ---
 
 ## Install (Pulsar)
-**Requirements:** Windows + Space Engineers on Pulsar's **Legacy** (.NET Framework) runtime. Token encryption at
-rest uses **Windows DPAPI**; on non-Windows runtimes the token still works but is **not encrypted on disk**, so
-prefer Windows for token-authenticated backends. Offline / no-auth use has no such caveat.
+**Requirements:** Space Engineers on Pulsar's **Legacy** (.NET Framework) or **Interim** (.NET 10) runtime.
+Token encryption at rest uses **Windows DPAPI** on both; on Linux (Interim) the token still works but is
+**not encrypted on disk**, so prefer Windows for token-authenticated backends. Offline / no-auth use has no
+such caveat.
 
 1. In Pulsar, add **Conduit** from the plugin list and enable it; restart SE.
 2. Open the config menu (**Ctrl+Shift+Home**), set your **Destination URL** (or leave online off and use

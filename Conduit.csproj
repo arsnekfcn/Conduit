@@ -1,15 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <!-- net48 = Pulsar Legacy (SE1 on .NET Framework). net10.0-windows = Pulsar Interim (SE1 on
+         .NET 10 via se-dotnet-compat). Pulsar's from-source build ignores this csproj and compiles
+         against its own reference set per variant; these legs exist so a local dotnet build is a
+         faithful compile gate for both. Outputs land in bin/Release/<tfm>/. -->
+    <TargetFrameworks>net48;net10.0-windows</TargetFrameworks>
     <!-- Output DLL is Conduit.dll so Pulsar lists it as "Conduit". -->
     <AssemblyName>Conduit</AssemblyName>
     <RootNamespace>Conduit</RootNamespace>
     <LangVersion>latest</LangVersion>
     <Platforms>x64</Platforms>
     <Configurations>Debug;Release</Configurations>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <SeBin64 Condition="'$(SeBin64)' == ''">E:\SteamLibrary\steamapps\common\SpaceEngineers\Bin64</SeBin64>
+    <!-- The game DLLs are net48 assemblies; referencing them from the net10 leg is exactly what
+         Pulsar Interim does, so silence the framework-mismatch noise. -->
+    <NoWarn>$(NoWarn);NU1701;MSB3277</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,11 +25,23 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
     <!-- Framework assemblies not auto-referenced in SDK-style net48 projects. -->
     <Reference Include="System.Net.Http" />        <!-- HttpClient: POST to the backend -->
     <Reference Include="System.Security" />         <!-- DPAPI: ProtectedData for a stored token (auth) -->
     <Reference Include="System.Net" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+    <!-- Core TFMs do not copy package DLLs to the output by default; deploy.sh ships
+         Newtonsoft.Json beside the Local install, mirroring the Legacy layout. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+    <!-- ProtectedData (DPAPI) ships in the WindowsDesktop shared framework on modern .NET, which is
+         also what Pulsar Interim hosts the game under (and probes for its plugin compiles). -->
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App" />
   </ItemGroup>
 
   <ItemGroup>
