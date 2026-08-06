@@ -143,18 +143,30 @@ namespace Conduit
         private static string Protect(string plain)
         {
             if (string.IsNullOrEmpty(plain)) return "";
+#if PLATFORM_LINUX
+            // No DPAPI on Linux (Pulsar compiles with PLATFORM_LINUX there, and the ProtectedData
+            // assembly does not exist outside Windows). The token stays plaintext at rest; the
+            // config file is still per-user under $HOME. Documented in README/SECURITY.
+            return plain;
+#else
             try
             {
                 var enc = ProtectedData.Protect(Encoding.UTF8.GetBytes(plain), null, DataProtectionScope.CurrentUser);
                 return DpapiPrefix + Convert.ToBase64String(enc);
             }
             catch { return plain; }   // DPAPI unavailable (non-Windows test). best effort, leave as-is
+#endif
         }
 
         private static string Unprotect(string stored)
         {
             if (string.IsNullOrEmpty(stored)) return "";
             if (!stored.StartsWith(DpapiPrefix)) return stored;   // legacy/hand-pasted plaintext
+#if PLATFORM_LINUX
+            // A DPAPI: blob can only have been written by a Windows machine; it cannot be
+            // decrypted here. Treat as empty so the user re-links rather than sending garbage.
+            return "";
+#else
             try
             {
                 var dec = ProtectedData.Unprotect(Convert.FromBase64String(stored.Substring(DpapiPrefix.Length)),
@@ -162,6 +174,7 @@ namespace Conduit
                 return Encoding.UTF8.GetString(dec);
             }
             catch { return ""; }   // can't decrypt (e.g. copied from another machine/user) -> treat as empty
+#endif
         }
     }
 }

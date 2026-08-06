@@ -11,6 +11,8 @@ your data and credentials go, what the plugin can and can't do, and the question
   routes it anywhere else. Not to the author, not to anyone. That's a property of the open source you can read.
 - Your **auth token is stored encrypted** (Windows DPAPI, per user) and is sent **only** to your endpoint,
   **only over HTTPS** (a non-HTTPS endpoint is refused unless you explicitly set `AllowInsecureEndpoint`).
+  On **Linux** (Pulsar Interim) there is no DPAPI: the token is stored **plain text** in the per-user
+  config file. Prefer Windows for token-authenticated backends, or use offline / no-auth mode.
 - The data leaves your machine **out of band**.. A direct HTTPS POST to your backend. It never travels
   through Space Engineers' multiplayer replication, so **other players (and server-side mods) cannot read
   it.** TLS protects it in transit.
@@ -65,7 +67,7 @@ If your backend uses token auth, you can link from inside the game:
   a localhost loopback so the **token never appears in a browser URL or history**. A random `state` nonce
   ties the response to the request.
 - The token is written **DPAPI-encrypted**; on disk it's `DPAPI:…`, readable only by your Windows account
-  on that PC.
+  on that PC. (On Linux, where DPAPI does not exist, it is stored plain; see the caveat above.)
 
 Steam is a *legacy OpenID 2.0* provider. The plugin/backend mitigate the known weaknesses (single-use
 response nonce, return-URL validation), but two honest caveats remain, inherent to any "sign in with X":
