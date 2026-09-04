@@ -54,6 +54,11 @@ namespace Conduit
         // Lets a PB write state rapidly and have each distinct state pushed within a few frames.
         public bool LivePush = false;
         public int LiveScanFrames = 6;      // ~10 Hz at 60 fps; min 1
+        // Floor between two live pushes. Every reporter in reach rewrites its packet on its own clock, so
+        // with N reporters the fingerprint changes up to N times per cycle and a client was seen posting
+        // 300 envelopes a minute against a backend limit of 240; the rejected envelopes lost every
+        // packet in them. Changes inside the floor coalesce into the next push (newest state wins).
+        public double LiveMinIntervalSeconds = 2.0;
 
         // Manual-scan hotkey (the periodic scan runs regardless; this is just a force-now key).
         // Default Ctrl+Shift+End.

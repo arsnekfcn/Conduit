@@ -10,7 +10,7 @@ Custom Data begins with the marker **`[CDT:<tag>]`**, wraps each packet in a sma
 it. **It never interprets the payload, and never senses anything itself.**
 
 The access guardrail is mechanical: the plugin reads Custom Data **only on grids you can vanilla-access right now**.
-Your own or shared faction grids that you're controlling (in a seat), that have their terminal open, or that are within a broadcasting antenna's range (with your own antenna online). Standing next to a grid doesn't count.
+Your own or shared faction grids that you're controlling (in a seat, including anything docked to it by connector), that have their terminal open, or that are within a broadcasting antenna's range (with your own antenna online). Standing next to a grid doesn't count. A grid carrying a packet that fails this gate is named in the log with the reason (`out of reach, not forwarded: <grid>: ...`), once per five minutes, and a manual sync says how many were skipped.
 So it can only ever forward data a vanilla script, mod, or player could have written on a grid whose terminal
 you could open yourself.
 Data contract: **[SCHEMA.md](SCHEMA.md)**. Trust model: **[SECURITY.md](SECURITY.md)**.

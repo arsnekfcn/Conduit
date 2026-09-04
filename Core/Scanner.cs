@@ -65,7 +65,14 @@ namespace Conduit
 
                 slims.Clear();
                 grid.GetBlocks(slims);
-                if (!CanAccess(grid, playerPos, controlled, terminalGrid, relayOnline, slims)) continue;   // vanilla reach gate
+                if (!CanAccess(grid, playerPos, controlled, terminalGrid, relayOnline, slims))            // vanilla reach gate
+                {
+                    // Out of reach. If it is carrying a packet, say why, so a station that "stopped
+                    // reporting" can be diagnosed from the log rather than from the backend's silence.
+                    if (HasPacketBlock(slims, me))
+                        env.Skipped.Add(grid.DisplayName + ": " + ReachReason(grid, playerPos, relayOnline, slims));
+                    continue;
+                }
 
                 string facTag = session.Factions?.TryGetPlayerFaction(ownerId)?.Tag;
                 foreach (var b in slims)
@@ -86,6 +93,39 @@ namespace Conduit
 
             env.Fingerprint = fp.ToString("x16");
             return env;
+        }
+
+        // Does this grid carry a [CDT:] packet the player could read? Same block gate as the read loop.
+        private static bool HasPacketBlock(List<IMySlimBlock> slims, long me)
+        {
+            foreach (var b in slims)
+            {
+                var t = b.FatBlock as IngameTerminal;
+                if (t == null || !t.HasPlayerAccess(me, MyRelationsBetweenPlayerAndBlock.NoOwnership)) continue;
+                var cd = t.CustomData;
+                if (!string.IsNullOrEmpty(cd) && cd.StartsWith(Marker, StringComparison.Ordinal)) return true;
+            }
+            return false;
+        }
+
+        // Why a packet-carrying grid failed CanAccess, in the words an operator can act on. Evaluated
+        // only for skipped grids, so it costs nothing on the normal path.
+        private static string ReachReason(IMyCubeGrid grid, Vector3D playerPos, bool relayOnline, List<IMySlimBlock> slims)
+        {
+            if (!relayOnline) return "your own relay is off (turn suit antenna broadcast on, or sit in a ship with a live antenna)";
+            IngameAntenna nearest = null; double best = double.MaxValue; int dead = 0;
+            foreach (var b in slims)
+            {
+                var ant = b.FatBlock as IngameAntenna;
+                if (ant == null) continue;
+                if (!IsLiveBroadcastAntenna(ant)) { dead++; continue; }
+                double d = Vector3D.Distance(playerPos, ant.GetPosition());
+                if (d < best) { best = d; nearest = ant; }
+            }
+            if (nearest == null)
+                return dead > 0 ? "its antenna is off, not broadcasting, or unpowered (" + dead + " found)"
+                                : "no antenna on it (a broadcasting antenna is how a station is read without opening its terminal)";
+            return "outside its antenna range: nearest broadcasts " + nearest.Radius.ToString("0") + " m, you are " + best.ToString("0") + " m away";
         }
 
         // FNV-1a 64 over the block's entityId + raw Custom Data. Cheap; used only to detect change.
@@ -149,10 +189,12 @@ namespace Conduit
             catch { return null; }
         }
 
-        // Vanilla reach, the three real ways you have a grid's terminal: you control its construct (in a chair),
-        // you have its terminal open, or you're in range of a live broadcasting antenna on it with your own relay
-        // online. NO distance heuristic - merely standing next to a grid doesn't count. Ownership is already
-        // limited to own/faction by Evaluate, so this only applies to grids you could open anyway.
+        // Vanilla reach, the three real ways you have a grid's terminal: you control its construct (in a chair,
+        // including anything docked to it by connector, which is what the terminal's own "show connected
+        // grids" reaches), you have its terminal open, or you're in range of a live broadcasting antenna on
+        // it with your own relay online. NO distance heuristic - merely standing next to a grid doesn't
+        // count. Ownership is already limited to own/faction by Evaluate, so this only applies to grids you
+        // could open anyway.
         private static readonly List<IMyCubeGrid> _grp = new List<IMyCubeGrid>();
         private static bool CanAccess(IMyCubeGrid grid, Vector3D playerPos, IMyCubeGrid controlled, IMyCubeGrid terminalGrid, bool relayOnline, List<IMySlimBlock> slims)
         {
@@ -202,7 +244,10 @@ namespace Conduit
             if (a.EntityId == b.EntityId) return true;
             try
             {
-                var g = b.GetGridGroup(GridLinkTypeEnum.Mechanical);
+                // Logical = mechanical links PLUS connectors. A seat on a ship docked to a station has that
+                // station's terminal in vanilla; Mechanical alone did not count it, so a docked cluster read
+                // as one grid at a time.
+                var g = b.GetGridGroup(GridLinkTypeEnum.Logical);
                 if (g != null)
                 {
                     _grp.Clear();

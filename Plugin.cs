@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using Sandbox.Graphics.GUI;
@@ -23,6 +24,9 @@ namespace Conduit
         private int _intervalFrames = 240;          // recomputed from config once loaded (~60 fps)
         private int _liveFrames = 6;                // live-push scan cadence (frames)
         private string _lastFingerprint;            // last-pushed payload fingerprint (live push)
+        private DateTime _lastLivePush = DateTime.MinValue;
+        private readonly Dictionary<string, DateTime> _skipLogged = new Dictionary<string, DateTime>();
+        private static readonly TimeSpan SkipLogEvery = TimeSpan.FromMinutes(5);
         private int _hkCooldown;
         private MyKeys _hkKey = MyKeys.End;
         private int _linkCooldown;
@@ -87,12 +91,30 @@ namespace Conduit
         private void LiveTick()
         {
             if (_sending) return;
+            if ((DateTime.UtcNow - _lastLivePush).TotalSeconds < Math.Max(0.0, _cfg.LiveMinIntervalSeconds)) return;
             var env = Scanner.Scan(_cfg);
+            LogSkipped(env);
             int count = env.Packets.Count;
             if (count == 0) { _lastFingerprint = null; return; }   // nothing in reach; re-appearance re-pushes
             if (env.Fingerprint == _lastFingerprint) return;       // unchanged
             _lastFingerprint = env.Fingerprint;
+            _lastLivePush = DateTime.UtcNow;
             Dispatch(env, count, false);
+        }
+
+        // Grids carrying a packet that the reach gate refused, once per grid per five minutes: enough to
+        // answer "why is DX6 REF LEFT not updating" from the log without flooding it at 10 Hz.
+        private void LogSkipped(Envelope env)
+        {
+            if (env.Skipped.Count == 0) return;
+            var now = DateTime.UtcNow;
+            foreach (var line in env.Skipped)
+            {
+                DateTime last;
+                if (_skipLogged.TryGetValue(line, out last) && now - last < SkipLogEvery) continue;
+                _skipLogged[line] = now;
+                Log("out of reach, not forwarded: " + line);
+            }
         }
 
         // Build the payload on the MAIN thread, then hand it off.
@@ -101,13 +123,20 @@ namespace Conduit
         {
             if (_sending) { if (manual) Notify.Hud("Conduit: a sync is already running"); return; }
             var env = Scanner.Scan(_cfg);
+            LogSkipped(env);
             int count = env.Packets.Count;
-            if (count == 0) { if (manual) Notify.Hud("Conduit: no [CDT:...] packets in reach to sync"); return; }
-            Dispatch(env, count, manual);
+            if (count == 0)
+            {
+                if (manual) Notify.Hud(env.Skipped.Count > 0
+                    ? "Conduit: no packets in reach; " + env.Skipped.Count + " grid(s) out of reach (see log)"
+                    : "Conduit: no [CDT:...] packets in reach to sync");
+                return;
+            }
+            Dispatch(env, count, manual, env.Skipped.Count);
         }
 
         // Serialize + POST on a bg thread. Sets _sending for the duration (one in-flight send at a time).
-        private void Dispatch(Envelope env, int count, bool manual)
+        private void Dispatch(Envelope env, int count, bool manual, int skipped = 0)
         {
             _sending = true;
             ThreadPool.QueueUserWorkItem(_ =>
@@ -116,7 +145,8 @@ namespace Conduit
                 try { code = Sender.Send(_cfg, env); }
                 catch (Exception ex) { Log("send failed: " + ex.Message); code = -1; }
                 finally { _sending = false; }
-                if (manual) Notify.Hud(SyncMsg("Manual sync", count, code), 4000);
+                if (manual) Notify.Hud(SyncMsg("Manual sync", count, code)
+                                        + (skipped > 0 ? $" ({skipped} grid(s) out of reach, see log)" : ""), 4000);
                 else if (_cfg.ChatOnSync) Notify.Chat(SyncMsg("Synced", count, code));
             });
         }
